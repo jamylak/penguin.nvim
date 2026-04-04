@@ -106,7 +106,9 @@ Initial interaction model:
 - `Esc` closes the picker
 - `Up` / `Down` move selection
 - `Ctrl-j` / `Ctrl-k` may be supported as alternates
+- `Ctrl-n` / `Ctrl-p` will also move selection down and up
 - `Ctrl-e` completes the current text box from the selected suggestion without immediately running it
+- `Ctrl-w` deletes one word backward in the input text box
 
 Later interaction:
 
@@ -257,11 +259,22 @@ Purpose:
 - `Enter` executes the selected suggestion
 - `Ctrl-e` fills the text box from the selected suggestion without executing
 - `Shift-Enter` executes the current text box contents directly
+- `Ctrl-w` deletes one word backward in the prompt
 - keep prompt state transitions explicit and testable
 
 Purpose:
 
 - make the picker behave like a real command-entry surface, not only a result list
+
+### 🟨 Step 4.5: Additional Prompt Navigation
+
+- `Ctrl-n` moves selection down
+- `Ctrl-p` moves selection up
+- keep these bindings aligned with command-line muscle memory
+
+Purpose:
+
+- make picker navigation feel natural for command-line-heavy users
 
 ### 🟨 Step 5: Mixed Suggestion Sources
 
@@ -369,6 +382,7 @@ The benchmark harness must make it easy to compare:
 
 - baseline vs optimized implementation
 - Lua matcher vs C matcher
+- naive Lua vs naive C vs optimized C
 - small vs medium vs large histories
 - empty query vs short fuzzy query vs multi-token query vs low-match query
 
@@ -378,6 +392,14 @@ That baseline exists to answer two questions:
 
 - how fast the current Lua behavior already is
 - whether a C rewrite actually produces a meaningful win
+
+Implementation comparisons should stay explicit as the project evolves:
+
+- naive Lua matcher
+- naive C matcher
+- optimized C matcher
+
+The Lua baseline may eventually be removed from the runtime hot path, but it should remain useful during benchmarking until the C path is clearly correct and materially faster.
 
 ### History Sizes
 
@@ -429,6 +451,12 @@ Every optimization pass should follow the same loop:
 Before the C path exists, the benchmark suite should already run against the Lua matcher alone.
 
 That gives the project an honest starting point and avoids guessing about performance.
+
+After the first C version exists, the benchmark suite should compare at least:
+
+1. naive Lua
+2. naive C
+3. optimized C
 
 ### Benchmark Output
 
