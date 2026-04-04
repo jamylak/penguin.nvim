@@ -1,16 +1,17 @@
 # 🐧 `penguin.nvim` Plan
 
-> A fast command-history picker for Neovim.
+> A fast command-entry picker for Neovim.
 > Telescope-like presentation, but smaller, lighter, and built around a C hot path.
 
 ## 🎯 What `penguin.nvim` Is
 
-`penguin.nvim` is a focused picker for Ex command history.
+`penguin.nvim` is a focused picker for Ex command entry.
 
 The plugin opens a floating interface that:
 
 - shows recent commands first when the query is empty
 - fuzzily filters command history as the user types
+- can surface both history matches and live Ex command suggestions
 - feels immediate and lightweight
 - keeps the hot filtering path in C
 - exposes a small Lua API
@@ -31,7 +32,7 @@ Not in V1:
 
 V1 is about one thing only:
 
-- excellent command-history search and execution
+- excellent command entry, search, completion, and execution
 
 ## ✨ Core UX
 
@@ -101,14 +102,36 @@ Initial interaction model:
 
 - `:Penguin` opens the picker
 - `Enter` executes the selected command
+- `Shift-Enter` executes the current text box contents without taking the selected suggestion
 - `Esc` closes the picker
 - `Up` / `Down` move selection
 - `Ctrl-j` / `Ctrl-k` may be supported as alternates
+- `Ctrl-e` completes the current text box from the selected suggestion without immediately running it
 
 Later interaction:
 
-- edit-before-run action
 - guarded empty-buffer `Enter` shortcut
+
+### Suggestion Sources
+
+The picker is not limited to raw command history.
+
+Suggestion sources include:
+
+- recent Ex command history
+- live Ex command suggestions from Neovim command completion
+
+Example:
+
+```text
+query: "Octo "
+
+results may include:
+- history entries beginning with `Octo`
+- command suggestions derived from `Octo` itself
+```
+
+The intended behavior is merged suggestions, not an either/or mode.
 
 ## 🧱 Architecture
 
@@ -155,7 +178,7 @@ README.md                   -- installation and usage
 
 Non-negotiable principles:
 
-- command-history only in V1
+- tight V1 scope around Ex command entry
 - small dependency surface
 - no heavy framework dependency
 - minimal allocations on the typing hot path
@@ -229,7 +252,29 @@ Purpose:
 - make manual iteration trivial
 - make it easy to keep a copyable local test flow in the repo
 
-### 🟨 Step 4: Native Filter MVP
+### 🟨 Step 4: Command Entry Actions
+
+- `Enter` executes the selected suggestion
+- `Ctrl-e` fills the text box from the selected suggestion without executing
+- `Shift-Enter` executes the current text box contents directly
+- keep prompt state transitions explicit and testable
+
+Purpose:
+
+- make the picker behave like a real command-entry surface, not only a result list
+
+### 🟨 Step 5: Mixed Suggestion Sources
+
+- merge command-history matches with live Ex command suggestions
+- support command-oriented completion flows such as `Octo `
+- define ranking rules between history hits and command-completion hits
+- keep source identity visible internally for testing and ranking
+
+Purpose:
+
+- let the picker help with both recall and discovery
+
+### 🟨 Step 6: Native Filter MVP
 
 - compile native module
 - expose a small Lua-facing filter API
@@ -240,13 +285,7 @@ Purpose:
 
 - move the hot path to C without changing the product shape
 
-### 🟨 Step 5: Execute Selected Command
-
-- run selected command
-- close picker cleanly
-- handle state transitions safely
-
-### 🟨 Step 6: Guarded Empty-Buffer `Enter`
+### 🟨 Step 7: Guarded Empty-Buffer `Enter`
 
 - provide an opt-in helper
 - only activate in normal mode
@@ -257,7 +296,7 @@ Purpose:
 
 - test the shortcut safely before treating it as a promoted default
 
-### 🟥 Step 7: Optimization Pass
+### 🟥 Step 8: Optimization Pass
 
 - profile hot paths
 - reduce allocations
@@ -265,7 +304,7 @@ Purpose:
 - add microbenchmarks
 - compare candidate implementations against the same fixtures
 
-### 🟥 Step 8: Hardening
+### 🟥 Step 9: Hardening
 
 - edge-case handling
 - error handling
@@ -449,14 +488,17 @@ require("penguin").setup({})
 Initial data source:
 
 - Neovim Ex command history
+- Neovim Ex command completion results where relevant
 
 Later possibilities:
 
 - search history
-- command registry integration
 - other picker modes
 
-Those are future concerns. They are not part of V1.
+The core V1 source model is:
+
+- history for recall
+- command completion for discovery and command-family expansion
 
 ## 🚨 Risks
 
