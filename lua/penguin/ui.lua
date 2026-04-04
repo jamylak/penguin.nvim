@@ -75,6 +75,8 @@ local function render_results(session)
 end
 
 function M.open(session)
+  session.origin_win = vim.api.nvim_get_current_win()
+
   local prompt_buf = vim.api.nvim_create_buf(false, true)
   local results_buf = vim.api.nvim_create_buf(false, true)
   local size = dimensions(session.config)
@@ -201,6 +203,12 @@ function M.focus_prompt(session)
 end
 
 function M.close(session)
+  pcall(vim.cmd, "stopinsert")
+
+  if session.origin_win and vim.api.nvim_win_is_valid(session.origin_win) then
+    vim.api.nvim_set_current_win(session.origin_win)
+  end
+
   for _, window in ipairs({ session.prompt_win, session.results_win }) do
     if window and vim.api.nvim_win_is_valid(window) then
       vim.api.nvim_win_close(window, true)

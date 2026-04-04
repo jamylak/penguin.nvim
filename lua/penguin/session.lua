@@ -21,6 +21,12 @@ local function execute_command(text)
   return ok
 end
 
+local function run_after_close(text)
+  vim.schedule(function()
+    execute_command(text)
+  end)
+end
+
 function Session:new(config)
   local session = setmetatable({
     closed = false,
@@ -100,7 +106,7 @@ function Session:submit_query()
   end
 
   self:close()
-  execute_command(text)
+  run_after_close(text)
 end
 
 function Session:confirm()
@@ -111,7 +117,7 @@ function Session:confirm()
   end
 
   self:close()
-  execute_command(text)
+  run_after_close(text)
 end
 
 function Session:close()

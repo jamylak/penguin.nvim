@@ -41,6 +41,9 @@ assert(vim.api.nvim_buf_get_lines(session.prompt_buf, 0, 1, false)[1] == "let g:
 
 session:confirm()
 
+vim.wait(1000, function()
+  return vim.g.penguin_selected == 7
+end)
 assert(vim.g.penguin_selected == 7)
 
 require("penguin").open()
@@ -51,6 +54,9 @@ assert(session)
 session:set_query("let g:penguin_direct = 13")
 session:submit_query()
 
+vim.wait(1000, function()
+  return vim.g.penguin_direct == 13
+end)
 assert(vim.g.penguin_direct == 13)
 
 require("penguin").close()
