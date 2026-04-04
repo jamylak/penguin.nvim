@@ -1,13 +1,29 @@
-local M = {}
+local config = require("penguin.config")
+local session = require("penguin.session")
 
-M.config = {}
+local M = {
+  _session = nil,
+  config = config.defaults,
+}
 
 function M.setup(opts)
-  M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  M.config = config.merge(opts)
 end
 
 function M.open()
-  vim.notify("penguin.nvim: picker not implemented yet", vim.log.levels.INFO)
+  if M._session and not M._session.closed then
+    M._session:close()
+  end
+
+  M._session = session.open(M.config, function()
+    M._session = nil
+  end)
+end
+
+function M.close()
+  if M._session and not M._session.closed then
+    M._session:close()
+  end
 end
 
 return M

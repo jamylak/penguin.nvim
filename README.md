@@ -4,13 +4,16 @@ Fast command-history picker for Neovim.
 
 ## Status
 
-Early scaffold only.
+Pure Lua vertical slice.
 
 Current stage:
 
 - plugin loads
-- `:Penguin` command exists
-- picker UI is not implemented yet
+- `:Penguin` opens a floating picker
+- Ex command history is collected from Neovim
+- empty query shows recent commands first
+- fuzzy filtering runs in Lua
+- command execution is not implemented yet
 
 ## Installation
 
@@ -41,4 +44,12 @@ Run:
 :Penguin
 ```
 
-At this stage the command only confirms that the plugin is wired correctly.
+At this stage the picker opens, filters, and navigates, but it does not execute commands yet.
+
+Current controls:
+
+- type to filter
+- `Up` / `Down` to move
+- `Ctrl-j` / `Ctrl-k` to move
+- `Enter` selects the current item and closes the picker
+- `Esc` closes the picker

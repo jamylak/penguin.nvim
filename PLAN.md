@@ -218,6 +218,8 @@ Purpose:
 ### 🟨 Step 3: Local Dev Workflow
 
 - add `scripts/minimal_init.lua`
+- add a simple manual runner entrypoint for launching a clean Neovim with `penguin.nvim`
+- add a simple headless verification script so the basic load/check flow is easy to rerun
 - support local runtimepath activation
 - support local `lazy.nvim` activation
 - add a simple run target
@@ -225,6 +227,7 @@ Purpose:
 Purpose:
 
 - make manual iteration trivial
+- make it easy to keep a copyable local test flow in the repo
 
 ### 🟨 Step 4: Native Filter MVP
 
@@ -330,6 +333,13 @@ The benchmark harness must make it easy to compare:
 - small vs medium vs large histories
 - empty query vs short fuzzy query vs multi-token query vs low-match query
 
+The initial benchmark baseline is the pure-Lua matcher.
+
+That baseline exists to answer two questions:
+
+- how fast the current Lua behavior already is
+- whether a C rewrite actually produces a meaningful win
+
 ### History Sizes
 
 Initial benchmark size buckets:
@@ -377,10 +387,15 @@ Every optimization pass should follow the same loop:
 3. rerun the exact same benchmark suite
 4. compare results side by side
 
+Before the C path exists, the benchmark suite should already run against the Lua matcher alone.
+
+That gives the project an honest starting point and avoids guessing about performance.
+
 ### Benchmark Output
 
 Benchmark output should make comparison straightforward:
 
+- backend name, such as `lua` or `c`
 - implementation name
 - dataset size
 - query set
@@ -423,6 +438,8 @@ require("penguin").setup({})
 ### Planned Dev Helpers
 
 - `scripts/minimal_init.lua`
+- manual launch script for a clean local Neovim session
+- headless verification script for quick smoke tests
 - `make run`
 - `make test`
 - `make bench`

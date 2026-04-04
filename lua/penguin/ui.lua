@@ -1,0 +1,186 @@
+local M = {}
+
+local namespace = vim.api.nvim_create_namespace("penguin.nvim")
+
+local function set_window_options(window)
+  local options = {
+    cursorline = false,
+    foldcolumn = "0",
+    number = false,
+    relativenumber = false,
+    signcolumn = "no",
+    spell = false,
+    wrap = false,
+  }
+
+  for name, value in pairs(options) do
+    vim.wo[window][name] = value
+  end
+end
+
+local function dimensions(config)
+  local width = math.min(config.ui.width, math.max(vim.o.columns - 4, 24))
+  local results_height = math.min(config.ui.max_results, math.max(vim.o.lines - 8, 4))
+  local total_height = results_height + 4
+  local row = math.max(math.floor((vim.o.lines - total_height) / 2), 1)
+  local col = math.max(math.floor((vim.o.columns - width) / 2), 0)
+
+  return {
+    col = col,
+    prompt_row = row,
+    results_height = results_height,
+    results_row = row + 3,
+    width = width,
+  }
+end
+
+local function set_buffer_options(buffer, prompt)
+  vim.bo[buffer].bufhidden = "wipe"
+  vim.bo[buffer].buftype = prompt and "prompt" or "nofile"
+  vim.bo[buffer].filetype = prompt and "penguin-prompt" or "penguin-results"
+  vim.bo[buffer].modifiable = true
+  vim.bo[buffer].swapfile = false
+end
+
+local function render_results(session)
+  local lines = {}
+
+  if #session.entries == 0 then
+    lines = { "  no command history yet" }
+  elseif #session.matches == 0 then
+    lines = { "  no matches" }
+  else
+    for index, match in ipairs(session.matches) do
+      local marker = index == session.selection and ">" or " "
+      lines[index] = string.format("%s %s", marker, match.item.text)
+    end
+  end
+
+  vim.bo[session.results_buf].modifiable = true
+  vim.api.nvim_buf_set_lines(session.results_buf, 0, -1, false, lines)
+  vim.bo[session.results_buf].modifiable = false
+
+  vim.api.nvim_buf_clear_namespace(session.results_buf, namespace, 0, -1)
+
+  if session.selection > 0 then
+    vim.api.nvim_buf_add_highlight(
+      session.results_buf,
+      namespace,
+      "Visual",
+      session.selection - 1,
+      0,
+      -1
+    )
+  end
+end
+
+function M.open(session)
+  local prompt_buf = vim.api.nvim_create_buf(false, true)
+  local results_buf = vim.api.nvim_create_buf(false, true)
+  local size = dimensions(session.config)
+
+  session.prompt_buf = prompt_buf
+  session.results_buf = results_buf
+
+  set_buffer_options(prompt_buf, true)
+  set_buffer_options(results_buf, false)
+
+  vim.fn.prompt_setprompt(prompt_buf, ": ")
+  vim.api.nvim_buf_set_lines(prompt_buf, 0, -1, false, { "" })
+
+  session.prompt_win = vim.api.nvim_open_win(prompt_buf, true, {
+    border = session.config.ui.border,
+    col = size.col,
+    focusable = true,
+    height = 1,
+    relative = "editor",
+    row = size.prompt_row,
+    style = "minimal",
+    title = " Penguin ",
+    title_pos = "center",
+    width = size.width,
+  })
+
+  session.results_win = vim.api.nvim_open_win(results_buf, false, {
+    border = session.config.ui.border,
+    col = size.col,
+    focusable = false,
+    height = size.results_height,
+    relative = "editor",
+    row = size.results_row,
+    style = "minimal",
+    title = " History ",
+    title_pos = "center",
+    width = size.width,
+  })
+
+  set_window_options(session.prompt_win)
+  set_window_options(session.results_win)
+
+  vim.api.nvim_create_autocmd({ "TextChangedI", "TextChanged" }, {
+    buffer = prompt_buf,
+    callback = function()
+      if session.closed or not vim.api.nvim_buf_is_valid(prompt_buf) then
+        return
+      end
+
+      local line = vim.api.nvim_buf_get_lines(prompt_buf, 0, 1, false)[1] or ""
+      session:set_query(line)
+    end,
+  })
+
+  local map_options = {
+    buffer = prompt_buf,
+    nowait = true,
+    silent = true,
+  }
+
+  vim.keymap.set({ "i", "n" }, "<Esc>", function()
+    session:close()
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<C-c>", function()
+    session:close()
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<Down>", function()
+    session:move_selection(1)
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<Up>", function()
+    session:move_selection(-1)
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<C-j>", function()
+    session:move_selection(1)
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<C-k>", function()
+    session:move_selection(-1)
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<CR>", function()
+    session:confirm()
+  end, map_options)
+
+  vim.api.nvim_set_current_win(session.prompt_win)
+  vim.cmd("startinsert")
+end
+
+function M.render(session)
+  if not session.results_buf or not vim.api.nvim_buf_is_valid(session.results_buf) then
+    return
+  end
+
+  render_results(session)
+end
+
+function M.close(session)
+  for _, window in ipairs({ session.prompt_win, session.results_win }) do
+    if window and vim.api.nvim_win_is_valid(window) then
+      vim.api.nvim_win_close(window, true)
+    end
+  end
+end
+
+return M
