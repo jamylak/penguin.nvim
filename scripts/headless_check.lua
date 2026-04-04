@@ -10,6 +10,8 @@ vim.cmd.source(vim.fs.joinpath(root, "plugin", "penguin.lua"))
 
 require("penguin").setup({})
 
+assert(vim.fn.maparg("<M-Space>", "n") ~= "")
+
 local matcher = require("penguin.matcher")
 
 assert(matcher.score("ckh", "checkhealth"))

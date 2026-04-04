@@ -44,6 +44,8 @@ Run:
 :Penguin
 ```
 
+Or press `Alt-Space` in normal mode.
+
 At this stage the picker opens, filters, and navigates, but it does not execute commands yet.
 
 Current controls:

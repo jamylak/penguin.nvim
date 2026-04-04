@@ -9,3 +9,10 @@ vim.api.nvim_create_user_command("Penguin", function()
 end, {
   desc = "Open penguin.nvim",
 })
+
+vim.keymap.set("n", "<M-Space>", function()
+  require("penguin").open()
+end, {
+  desc = "Open penguin.nvim",
+  silent = true,
+})
