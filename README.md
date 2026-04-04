@@ -53,3 +53,21 @@ Current controls:
 - `Ctrl-j` / `Ctrl-k` to move
 - `Enter` selects the current item and closes the picker
 - `Esc` closes the picker
+
+## Local Development
+
+Manual test session with seeded command history:
+
+```sh
+make run
+```
+
+That launches a clean Neovim using [scripts/minimal_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_init.lua), loads `penguin.nvim` from this repo, and seeds a few history entries so `:Penguin` is immediately useful.
+
+Headless smoke check:
+
+```sh
+make check
+```
+
+That runs [scripts/headless_check.lua](/Users/james/proj/penguin.nvim/scripts/headless_check.lua), which verifies basic loading, matcher examples, and picker session startup.
