@@ -163,8 +163,15 @@ function M.open(session)
     session:confirm()
   end, map_options)
 
-  vim.api.nvim_set_current_win(session.prompt_win)
-  vim.cmd("startinsert")
+  vim.keymap.set({ "i", "n" }, "<S-CR>", function()
+    session:submit_query()
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<C-e>", function()
+    session:complete_selection()
+  end, map_options)
+
+  M.focus_prompt(session)
 end
 
 function M.render(session)
@@ -173,6 +180,24 @@ function M.render(session)
   end
 
   render_results(session)
+end
+
+function M.set_prompt_text(session, text)
+  if not session.prompt_buf or not vim.api.nvim_buf_is_valid(session.prompt_buf) then
+    return
+  end
+
+  vim.api.nvim_buf_set_lines(session.prompt_buf, 0, -1, false, { text or "" })
+end
+
+function M.focus_prompt(session)
+  if not session.prompt_win or not vim.api.nvim_win_is_valid(session.prompt_win) then
+    return
+  end
+
+  vim.api.nvim_set_current_win(session.prompt_win)
+  vim.api.nvim_win_set_cursor(session.prompt_win, { 1, #session.query })
+  vim.cmd("startinsert")
 end
 
 function M.close(session)

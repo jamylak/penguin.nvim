@@ -13,7 +13,7 @@ Current stage:
 - Ex command history is collected from Neovim
 - empty query shows recent commands first
 - fuzzy filtering runs in Lua
-- command execution is not implemented yet
+- selected or typed commands can be executed from the picker
 
 ## Installation
 
@@ -46,14 +46,16 @@ Run:
 
 Or press `Alt-Space` in normal mode.
 
-At this stage the picker opens, filters, and navigates, but it does not execute commands yet.
+At this stage the picker opens, filters, navigates, completes, and executes commands from the prompt.
 
 Current controls:
 
 - type to filter
 - `Up` / `Down` to move
 - `Ctrl-j` / `Ctrl-k` to move
-- `Enter` selects the current item and closes the picker
+- `Enter` executes the selected item
+- `Shift-Enter` executes the current text box contents directly
+- `Ctrl-e` fills the text box from the selected item without executing
 - `Esc` closes the picker
 
 ## Local Development

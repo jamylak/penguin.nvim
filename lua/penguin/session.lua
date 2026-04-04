@@ -5,6 +5,22 @@ local ui = require("penguin.ui")
 local Session = {}
 Session.__index = Session
 
+local function execute_command(text)
+  local command = vim.trim(text or "")
+
+  if command == "" then
+    return false
+  end
+
+  local ok, err = pcall(vim.cmd, command)
+
+  if not ok then
+    vim.notify(("penguin.nvim: %s"):format(err), vim.log.levels.ERROR)
+  end
+
+  return ok
+end
+
 function Session:new(config)
   local session = setmetatable({
     closed = false,
@@ -45,6 +61,16 @@ function Session:set_query(query)
   self:refresh()
 end
 
+function Session:selected_text()
+  local entry = self.matches[self.selection]
+
+  if not entry then
+    return nil
+  end
+
+  return entry.item.text
+end
+
 function Session:move_selection(delta)
   if #self.matches == 0 then
     return
@@ -54,15 +80,38 @@ function Session:move_selection(delta)
   ui.render(self)
 end
 
-function Session:confirm()
-  local entry = self.matches[self.selection]
+function Session:complete_selection()
+  local text = self:selected_text()
 
-  if not entry then
+  if not text then
     return
   end
 
-  vim.notify(("penguin.nvim: selected `%s`"):format(entry.item.text), vim.log.levels.INFO)
+  self:set_query(text)
+  ui.set_prompt_text(self, text)
+  ui.focus_prompt(self)
+end
+
+function Session:submit_query()
+  local text = self.query
+
+  if vim.trim(text or "") == "" then
+    return
+  end
+
   self:close()
+  execute_command(text)
+end
+
+function Session:confirm()
+  local text = self:selected_text()
+
+  if not text then
+    return
+  end
+
+  self:close()
+  execute_command(text)
 end
 
 function Session:close()
