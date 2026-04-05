@@ -11,6 +11,7 @@ Current stage:
 - plugin loads
 - `:Penguin` opens a floating picker
 - Ex command history is collected from Neovim
+- live Ex command suggestions are merged into non-empty queries
 - empty query shows recent commands first
 - fuzzy filtering runs in Lua
 - selected or typed commands can be executed from the picker
@@ -51,6 +52,7 @@ At this stage the picker opens, filters, navigates, completes, and executes comm
 Current controls:
 
 - type to filter
+- non-empty queries can show both history hits and live command completions
 - `Up` / `Down` to move
 - `Ctrl-j` / `Ctrl-k` to move
 - `Enter` executes the selected item

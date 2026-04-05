@@ -25,6 +25,7 @@ vim.fn.histadd(":", "checkhealth")
 vim.fn.histadd(":", "vertical botright split")
 vim.fn.histadd(":", "let g:penguin_complete = 21")
 vim.fn.histadd(":", "let g:penguin_selected = 7")
+vim.fn.histadd(":", "set numberwidth=5")
 
 require("penguin").open()
 
@@ -32,6 +33,8 @@ local session = require("penguin")._session
 
 assert(session)
 assert(#session.matches >= 3)
+session:set_query("penguin sel")
+
 assert(session.matches[1].item.text == "let g:penguin_selected = 7")
 
 session:complete_selection()
@@ -58,6 +61,29 @@ vim.wait(1000, function()
   return vim.g.penguin_direct == 13
 end)
 assert(vim.g.penguin_direct == 13)
+
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+session:set_query("set nu")
+
+local saw_history = false
+local saw_completion = false
+
+for _, match in ipairs(session.matches) do
+  if match.item.text == "set numberwidth=5" and match.item.source == "history" then
+    saw_history = true
+  end
+
+  if match.item.text == "set number" and match.item.source == "completion" then
+    saw_completion = true
+  end
+end
+
+assert(saw_history)
+assert(saw_completion)
 
 require("penguin").close()
 
