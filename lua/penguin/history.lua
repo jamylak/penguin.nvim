@@ -10,6 +10,8 @@ function M.collect()
     if text ~= "" then
       table.insert(items, {
         recency = latest - index,
+        source = "history",
+        source_rank = 1,
         text = text,
       })
     end

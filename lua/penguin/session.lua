@@ -1,3 +1,4 @@
+local completion = require("penguin.completion")
 local history = require("penguin.history")
 local matcher = require("penguin.matcher")
 local ui = require("penguin.ui")
@@ -27,6 +28,36 @@ local function run_after_close(text)
   end)
 end
 
+local function merge_matches(history_matches, completion_matches, limit)
+  local merged = {}
+  local positions = {}
+
+  local function add(result)
+    local key = result.item.text
+    local index = positions[key]
+
+    if not index then
+      positions[key] = #merged + 1
+      table.insert(merged, result)
+      return
+    end
+
+    if matcher.compare_results(result, merged[index]) then
+      merged[index] = result
+    end
+  end
+
+  for _, result in ipairs(history_matches) do
+    add(result)
+  end
+
+  for _, result in ipairs(completion_matches) do
+    add(result)
+  end
+
+  return matcher.sort_results(merged, limit)
+end
+
 function Session:new(config)
   local session = setmetatable({
     closed = false,
@@ -44,7 +75,11 @@ function Session:new(config)
 end
 
 function Session:refresh()
-  self.matches = matcher.filter(self.entries, self.query, self.config.ui.max_results)
+  local limit = self.config.ui.max_results
+  local history_matches = matcher.filter(self.entries, self.query, limit)
+  local completion_matches = matcher.filter(completion.collect(self.query), self.query, limit)
+
+  self.matches = merge_matches(history_matches, completion_matches, limit)
 
   if #self.matches == 0 then
     self.selection = 0

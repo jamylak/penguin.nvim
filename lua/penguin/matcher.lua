@@ -171,6 +171,49 @@ local function prepare_candidate(text)
   }
 end
 
+function M.compare_results(left, right)
+  if left.score ~= right.score then
+    return left.score > right.score
+  end
+
+  local left_item = left.item
+  local right_item = right.item
+  local left_source_rank = left_item.source_rank or math.huge
+  local right_source_rank = right_item.source_rank or math.huge
+
+  if left_source_rank ~= right_source_rank then
+    return left_source_rank < right_source_rank
+  end
+
+  local left_recency = left_item.recency or math.huge
+  local right_recency = right_item.recency or math.huge
+
+  if left_recency ~= right_recency then
+    return left_recency < right_recency
+  end
+
+  local left_completion_rank = left_item.completion_rank or math.huge
+  local right_completion_rank = right_item.completion_rank or math.huge
+
+  if left_completion_rank ~= right_completion_rank then
+    return left_completion_rank < right_completion_rank
+  end
+
+  return left_item.text < right_item.text
+end
+
+function M.sort_results(results, limit)
+  table.sort(results, M.compare_results)
+
+  if limit and #results > limit then
+    for index = #results, limit + 1, -1 do
+      results[index] = nil
+    end
+  end
+
+  return results
+end
+
 function M.score(query, text)
   local normalized_query = normalize(query)
 
@@ -235,21 +278,7 @@ function M.filter(items, query, limit)
     end
   end
 
-  table.sort(results, function(left, right)
-    if left.score == right.score then
-      return left.item.recency < right.item.recency
-    end
-
-    return left.score > right.score
-  end)
-
-  if limit and #results > limit then
-    for index = #results, limit + 1, -1 do
-      results[index] = nil
-    end
-  end
-
-  return results
+  return M.sort_results(results, limit)
 end
 
 return M
