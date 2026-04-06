@@ -13,7 +13,7 @@ Current stage:
 - Ex command history is collected from Neovim
 - live Ex command suggestions are merged into non-empty queries
 - empty query shows recent commands first
-- fuzzy filtering runs in Lua
+- native build plumbing exists, but filtering still runs in Lua
 - selected or typed commands can be executed from the picker
 
 ## Installation
@@ -69,6 +69,12 @@ make run
 ```
 
 That launches a clean Neovim using [scripts/minimal_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_init.lua), loads `penguin.nvim` from this repo, and seeds a few history entries so `:Penguin` is immediately useful.
+
+Optional native stub build:
+
+```sh
+make native
+```
 
 Headless smoke check:
 
