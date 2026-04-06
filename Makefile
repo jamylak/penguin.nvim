@@ -13,7 +13,7 @@ endif
 
 NATIVE_LIB := $(CURDIR)/build/penguin_filter.$(LIB_EXT)
 
-.PHONY: native run check clean
+.PHONY: native run check check-native clean
 
 native: $(NATIVE_LIB)
 
@@ -26,6 +26,9 @@ run:
 
 check:
 	$(NVIM) --headless -u NONE -i NONE -l $(CURDIR)/scripts/headless_check.lua
+
+check-native: native
+	$(NVIM) --headless -u NONE -i NONE -l $(CURDIR)/scripts/headless_native_check.lua
 
 clean:
 	rm -rf $(CURDIR)/build

@@ -76,6 +76,12 @@ Optional native stub build:
 make native
 ```
 
+Native loader stub check:
+
+```sh
+make check-native
+```
+
 Headless smoke check:
 
 ```sh

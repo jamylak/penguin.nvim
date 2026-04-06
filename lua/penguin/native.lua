@@ -10,6 +10,10 @@ if not ok then
   return M
 end
 
+ffi.cdef([[
+int penguin_stub_version(void);
+]])
+
 local function repo_root()
   local source = debug.getinfo(1, "S").source:sub(2)
   local root = vim.fs.dirname(source)
@@ -31,5 +35,9 @@ end
 
 M.available = true
 M.library = lib
+
+function M.version()
+  return tonumber(lib.penguin_stub_version())
+end
 
 return M
