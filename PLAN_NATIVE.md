@@ -41,6 +41,11 @@ Example scope:
 - keep Lua matcher as a development reference only
 - verify identical call flow around the boundary
 
+Caveat:
+
+- this switch is transitional scaffolding only
+- it should not remain as a permanent user-facing runtime mode
+
 ## Step D: Port Features One By One
 
 Port matcher behavior in narrow slices:

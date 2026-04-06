@@ -14,6 +14,7 @@ Current stage:
 - live Ex command suggestions are merged into non-empty queries
 - empty query shows recent commands first
 - native build plumbing exists, but filtering still runs in Lua
+- a temporary native probe path can be enabled for development only
 - selected or typed commands can be executed from the picker
 
 ## Installation
@@ -81,6 +82,10 @@ Native loader stub check:
 ```sh
 make check-native
 ```
+
+That verifies the native loader and a temporary dev-only probe path without changing normal picker behavior.
+
+The probe path is transitional scaffolding for native bring-up only. It is not intended as a permanent user-facing runtime mode.
 
 Headless smoke check:
 
