@@ -399,7 +399,13 @@ Implementation comparisons should stay explicit as the project evolves:
 - naive C matcher
 - optimized C matcher
 
-The Lua baseline may eventually be removed from the runtime hot path, but it should remain useful during benchmarking until the C path is clearly correct and materially faster.
+The Lua baseline exists only as a temporary development reference for comparison while the C path is being brought up.
+
+The intended runtime shape is:
+
+- C backend only for filtering
+- no Lua fallback in normal plugin operation
+- Lua matcher deleted after the C implementation is validated
 
 ### History Sizes
 
@@ -457,6 +463,38 @@ After the first C version exists, the benchmark suite should compare at least:
 1. naive Lua
 2. naive C
 3. optimized C
+
+### Benchmark Harness Shape
+
+The benchmark harness should run inside real headless Neovim.
+
+It does not need a fake Neovim environment.
+
+The general approach is:
+
+1. launch Neovim headless
+2. load the plugin code
+3. prepare fixed in-memory command-history datasets
+4. prepare fixed in-memory query sets
+5. call the matcher/filter path repeatedly
+6. measure elapsed time with Neovim/Lua timing APIs
+7. print comparable timing output
+
+This keeps the benchmark fair because:
+
+- Lua and C run under the same host runtime
+- both backends see the same exact inputs
+- both backends are driven by the same script
+- only the filtering backend changes
+
+The first useful benchmark layer is backend-only matching/filtering cost.
+
+A later benchmark layer can measure a fuller picker refresh pipeline:
+
+- source collection
+- merge logic
+- filtering
+- sorting
 
 ### Benchmark Output
 
