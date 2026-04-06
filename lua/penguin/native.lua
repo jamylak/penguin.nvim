@@ -40,4 +40,8 @@ function M.version()
   return tonumber(lib.penguin_stub_version())
 end
 
+function M.probe()
+  return M.version()
+end
+
 return M

@@ -1,6 +1,11 @@
 local M = {}
 
 M.defaults = {
+  native = {
+    -- Temporary development-only switch for Step C of the native rollout.
+    -- This only touches the native boundary and still keeps Lua scoring active.
+    dev_probe = false,
+  },
   ui = {
     border = "rounded",
     max_results = 12,

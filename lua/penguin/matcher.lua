@@ -1,4 +1,8 @@
 local M = {}
+local native = require("penguin.native")
+-- Temporary Step C wiring: this probes the native boundary during scoring,
+-- but Lua still computes and returns the real matcher result.
+local native_probe_enabled = false
 
 local function normalize(text)
   return (text or ""):lower()
@@ -171,6 +175,16 @@ local function prepare_candidate(text)
   }
 end
 
+function M.configure(config)
+  -- Development-only transition hook. This should disappear once the real
+  -- native scorer is wired into the runtime path.
+  native_probe_enabled = config
+    and config.native
+    and config.native.dev_probe
+    and native.available
+    or false
+end
+
 function M.compare_results(left, right)
   if left.score ~= right.score then
     return left.score > right.score
@@ -215,6 +229,10 @@ function M.sort_results(results, limit)
 end
 
 function M.score(query, text)
+  if native_probe_enabled then
+    native.probe()
+  end
+
   local normalized_query = normalize(query)
 
   if vim.trim(normalized_query) == "" then
@@ -248,6 +266,14 @@ function M.score(query, text)
   end
 
   return best
+end
+
+function M.backend_name()
+  if native_probe_enabled then
+    return "lua+native-probe"
+  end
+
+  return "lua"
 end
 
 function M.filter(items, query, limit)

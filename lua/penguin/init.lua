@@ -1,4 +1,5 @@
 local config = require("penguin.config")
+local matcher = require("penguin.matcher")
 local session = require("penguin.session")
 
 local M = {
@@ -8,6 +9,7 @@ local M = {
 
 function M.setup(opts)
   M.config = config.merge(opts)
+  matcher.configure(M.config)
 end
 
 function M.open()

@@ -14,6 +14,8 @@ assert(vim.fn.maparg("<M-Space>", "n") ~= "")
 
 local matcher = require("penguin.matcher")
 
+assert(matcher.backend_name() == "lua")
+
 assert(matcher.score("ckh", "checkhealth"))
 assert(matcher.score("spl bot", "vertical botright split"))
 assert(matcher.score("splbot", "vertical botright split"))
