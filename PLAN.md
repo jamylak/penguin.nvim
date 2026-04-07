@@ -188,6 +188,13 @@ Non-negotiable principles:
 - compact Lua/C boundary
 - measurable benchmarks for every meaningful optimization
 
+Benchmark comparison should stay explicit across rollout stages:
+
+- pure Lua baseline
+- transitional Lua + C boundary slices
+- optimized Lua + C runtime shape
+- assembly-aware native optimization passes when warranted
+
 ## 🧠 Fuzzy Matching Direction
 
 The matcher is fuzzy and practical, not pedantic.

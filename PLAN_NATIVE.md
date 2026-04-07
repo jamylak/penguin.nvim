@@ -76,7 +76,10 @@ Each slice should:
 Benchmarking should compare:
 
 - naive Lua
+- transitional Lua + C slices
 - naive C
+- optimized Lua + C runtime shape
 - optimized C
+- assembly-aware native tuning when useful
 
 The benchmark harness should run inside real headless Neovim with fixed in-memory datasets and repeated matcher calls.
