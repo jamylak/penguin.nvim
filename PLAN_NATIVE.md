@@ -9,6 +9,7 @@ The runtime target is:
 - C-only filtering
 - no Lua fallback in normal operation
 - Lua matcher deleted after C is validated
+- long-lived native matcher state reused across queries
 
 To get there without huge diffs, native work should land in tiny vertical slices.
 
@@ -50,6 +51,9 @@ Caveat:
 
 Port matcher behavior in narrow slices:
 
+- first add native matcher-state construction and lifetime
+- then move candidate ownership and reusable result buffers into native matcher state
+- start with exact-only bulk filtering if that keeps the diff tiny
 - subsequence matching
 - token splitting
 - segmented single-token matching such as `splbot`

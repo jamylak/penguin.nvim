@@ -12,6 +12,9 @@ end
 
 ffi.cdef([[
 int penguin_stub_version(void);
+typedef struct penguin_exact_matcher penguin_exact_matcher;
+penguin_exact_matcher *penguin_exact_matcher_new(int text_count);
+void penguin_exact_matcher_free(penguin_exact_matcher *matcher);
 ]])
 
 local function repo_root()
@@ -37,11 +40,41 @@ M.available = true
 M.library = lib
 
 function M.version()
-  return tonumber(lib.penguin_stub_version())
+  return lib.penguin_stub_version()
 end
 
 function M.probe()
   return M.version()
+end
+
+-- First native-state slice only.
+-- Create one long-lived native matcher object, keep it across queries, and
+-- let C free it later when Lua drops the handle.
+-- This constructor only passes text_count, so it is not yet sizing native
+-- candidate storage from the actual string bytes. That fuller allocation step
+-- lands later when the matcher starts owning real candidate data.
+function M.new_exact_matcher(texts)
+  local text_count = #texts
+  local handle
+
+  if text_count == 0 then
+    return {
+      handle = nil,
+      text_count = 0,
+    }
+  end
+
+  handle = lib.penguin_exact_matcher_new(text_count)
+
+  if handle == nil then
+    error("failed to build native exact matcher")
+  end
+
+  return {
+    handle = ffi.gc(handle, lib.penguin_exact_matcher_free),
+    source_texts = texts,
+    text_count = text_count,
+  }
 end
 
 return M
