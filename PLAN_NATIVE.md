@@ -10,6 +10,7 @@ The runtime target is:
 - no Lua fallback in normal operation
 - Lua matcher deleted after C is validated
 - long-lived native matcher state reused across queries
+- zero fresh allocations on the steady-state query path
 
 To get there without huge diffs, native work should land in tiny vertical slices.
 
@@ -81,5 +82,6 @@ Benchmarking should compare:
 - optimized Lua + C runtime shape
 - optimized C
 - assembly-aware native tuning when useful
+- SIMD-aware native tuning when useful
 
 The benchmark harness should run inside real headless Neovim with fixed in-memory datasets and repeated matcher calls.

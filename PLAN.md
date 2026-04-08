@@ -184,6 +184,7 @@ Non-negotiable principles:
 - small dependency surface
 - no heavy framework dependency
 - minimal allocations on the typing hot path
+- zero fresh allocations on the steady-state query hot path
 - normalized history cached outside the per-keystroke path
 - compact Lua/C boundary
 - measurable benchmarks for every meaningful optimization
@@ -194,6 +195,7 @@ Benchmark comparison should stay explicit across rollout stages:
 - transitional Lua + C boundary slices
 - optimized Lua + C runtime shape
 - assembly-aware native optimization passes when warranted
+- SIMD-aware native experiments when warranted
 
 ## 🧠 Fuzzy Matching Direction
 
