@@ -14,6 +14,7 @@ ffi.cdef([[
 int penguin_stub_version(void);
 typedef struct penguin_exact_matcher penguin_exact_matcher;
 penguin_exact_matcher *penguin_exact_matcher_new(int text_count);
+int penguin_exact_matcher_result_capacity(const penguin_exact_matcher *matcher);
 void penguin_exact_matcher_free(penguin_exact_matcher *matcher);
 ]])
 
@@ -72,6 +73,7 @@ function M.new_exact_matcher(texts)
 
   return {
     handle = ffi.gc(handle, lib.penguin_exact_matcher_free),
+    result_capacity = lib.penguin_exact_matcher_result_capacity(handle),
     source_texts = texts,
     text_count = text_count,
   }

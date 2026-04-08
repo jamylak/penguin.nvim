@@ -23,6 +23,7 @@ exact = native.new_exact_matcher({
 
 assert(exact.handle ~= nil)
 assert(exact.text_count == 3)
+assert(exact.result_capacity == 3)
 assert(exact.source_texts[2] == "write")
 
 require("penguin").setup({
