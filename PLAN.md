@@ -197,6 +197,15 @@ Benchmark comparison should stay explicit across rollout stages:
 - assembly-aware native optimization passes when warranted
 - SIMD-aware native experiments when warranted
 
+Still-missing speed-critical pieces for the final native path:
+
+- C-owned corpus preprocessing at build time
+- native-owned normalized text and metadata
+- full query-time matching and scoring inside C
+- native top-k selection / ranking path
+- compact result records returned to Lua only
+- benchmark and assembly validation of the final hot path
+
 ## 🧠 Fuzzy Matching Direction
 
 The matcher is fuzzy and practical, not pedantic.
@@ -644,3 +653,5 @@ Build the plugin in this order:
 4. move the filter hot path to C
 5. add tests and benchmarks that lock behavior down
 6. optimize with evidence
+
+- Make the plugin load lazily

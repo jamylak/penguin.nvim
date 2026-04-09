@@ -11,6 +11,7 @@ The runtime target is:
 - Lua matcher deleted after C is validated
 - long-lived native matcher state reused across queries
 - zero fresh allocations on the steady-state query path
+- temporary Lua-to-C build handoff only; matcher-owned memory lives natively after construction
 
 To get there without huge diffs, native work should land in tiny vertical slices.
 
@@ -65,6 +66,15 @@ Each slice should:
 - add one behavior
 - add one or a few focused checks
 - stay small enough to review quickly
+
+Still missing before the final fast path:
+
+- native-owned corpus preprocessing at build time
+- normalized text and metadata stored in C
+- full query-time matching and scoring in C
+- native top-k selection / ranking
+- compact result records returned to Lua only
+- final benchmark, assembly, and SIMD validation passes
 
 ## Step E: Remove Lua Runtime Path
 
