@@ -1,6 +1,7 @@
 local completion = require("penguin.completion")
 local history = require("penguin.history")
 local matcher = require("penguin.matcher")
+local native = require("penguin.native")
 local ui = require("penguin.ui")
 
 local Session = {}
@@ -170,8 +171,23 @@ end
 
 local M = {}
 
+local function build_native_history_matcher(entries)
+  local texts = {}
+
+  if not native.available then
+    return nil
+  end
+
+  for index, entry in ipairs(entries) do
+    texts[index] = entry.text
+  end
+
+  return native.new_exact_matcher(texts)
+end
+
 function M.open(config, on_close)
   local session = Session:new(config)
+  session.native_history_matcher = build_native_history_matcher(session.entries)
   session.on_close = on_close
   return session
 end

@@ -37,4 +37,19 @@ assert(matcher.score("ckh", "checkhealth"))
 assert(matcher.score("splbot", "vertical botright split"))
 assert(not matcher.score("zz", "write"))
 
+vim.fn.histadd(":", "checkhealth")
+vim.fn.histadd(":", "write")
+
+require("penguin").open()
+
+local session = require("penguin")._session
+
+assert(session)
+assert(session.native_history_matcher ~= nil)
+assert(session.native_history_matcher.handle ~= nil)
+assert(session.native_history_matcher.text_count == #session.entries)
+assert(session.native_history_matcher.source_texts[1] == session.entries[1].text)
+
+require("penguin").close()
+
 vim.cmd("qa!")
