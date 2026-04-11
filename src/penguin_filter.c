@@ -30,17 +30,34 @@ int penguin_stub_version(void) { return 1; }
 /* First native-state slice: allocate a long-lived matcher object once, keep it
  * across queries, and free it when the Lua-owned handle dies.
  *
- * This constructor only knows text_count, so it is not yet sizing native
- * candidate storage from the actual string bytes. Query logic and fuller
+ * The C boundary now receives the real candidate text pointers and lengths, but
+ * it still only validates and sizes the matcher state. Query logic and fuller
  * native allocations land in later diffs.
  */
-penguin_exact_matcher *penguin_exact_matcher_new(int text_count, int text_bytes) {
+penguin_exact_matcher *penguin_exact_matcher_new(const char *const *texts,
+                                                 const int *text_lengths,
+                                                 int text_count,
+                                                 int text_bytes) {
   size_t total_bytes;
   size_t result_bytes;
+  int total_text_bytes = 0;
   unsigned char *cursor;
   penguin_exact_matcher *matcher;
+  int index;
 
-  if (text_count <= 0 || text_bytes < 0) {
+  if (text_count <= 0 || text_bytes < 0 || !texts || !text_lengths) {
+    return 0;
+  }
+
+  for (index = 0; index < text_count; index++) {
+    if (!texts[index] || text_lengths[index] < 0) {
+      return 0;
+    }
+
+    total_text_bytes += text_lengths[index];
+  }
+
+  if (total_text_bytes != text_bytes) {
     return 0;
   }
 
