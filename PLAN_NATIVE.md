@@ -55,6 +55,10 @@ Port matcher behavior in narrow slices:
 
 - first add native matcher-state construction and lifetime
 - then move candidate ownership and reusable result buffers into native matcher state
+- keep Lua-to-C build-time staging temporary and minimal; separate `ffi.new(...)`
+  pointer/length buffers are acceptable only as short-lived transition scaffolding
+- prefer a single struct-array handoff over multiple temporary FFI allocations when
+  tightening the constructor boundary
 - start with exact-only bulk filtering if that keeps the diff tiny
 - subsequence matching
 - token splitting
@@ -71,6 +75,7 @@ Still missing before the final fast path:
 
 - native-owned corpus preprocessing at build time
 - normalized text and metadata stored in C
+- no repeated Lua-side marshalling on the query path
 - full query-time matching and scoring in C
 - native top-k selection / ranking
 - compact result records returned to Lua only
