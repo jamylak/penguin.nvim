@@ -15,16 +15,11 @@ local exact
 assert(native.available)
 assert(native.version() == 1)
 
-exact = native.new_exact_matcher({
-  "checkhealth",
-  "write",
-  "healthcheck",
-}, #("checkhealthwritehealthcheck"))
+exact = native.new_exact_matcher(3, #("checkhealthwritehealthcheck"))
 
 assert(exact.handle ~= nil)
 assert(exact.text_count == 3)
 assert(exact.result_capacity == 3)
-assert(exact.source_texts[2] == "write")
 
 require("penguin").setup({
   native = {
@@ -48,7 +43,6 @@ assert(session)
 assert(session.native_history_matcher ~= nil)
 assert(session.native_history_matcher.handle ~= nil)
 assert(session.native_history_matcher.text_count == #session.entries)
-assert(session.native_history_matcher.source_texts[1] == session.entries[1].text)
 
 require("penguin").close()
 

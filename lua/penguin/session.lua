@@ -172,20 +172,17 @@ end
 local M = {}
 
 local function build_native_history_matcher(entries)
-  local texts = {}
   local text_bytes = 0
 
   if not native.available then
     return nil
   end
 
-  for index, entry in ipairs(entries) do
-    local text = entry.text
-    texts[index] = text
-    text_bytes = text_bytes + #text
+  for _, entry in ipairs(entries) do
+    text_bytes = text_bytes + #entry.text
   end
 
-  return native.new_exact_matcher(texts, text_bytes)
+  return native.new_exact_matcher(#entries, text_bytes)
 end
 
 function M.open(config, on_close)

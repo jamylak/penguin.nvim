@@ -54,8 +54,7 @@ end
 -- This constructor only passes text_count, so it is not yet sizing native
 -- candidate storage from the actual string bytes. That fuller allocation step
 -- lands later when the matcher starts owning real candidate data.
-function M.new_exact_matcher(texts, text_bytes)
-  local text_count = #texts
+function M.new_exact_matcher(text_count, text_bytes)
   local handle
 
   if text_count == 0 then
@@ -74,7 +73,6 @@ function M.new_exact_matcher(texts, text_bytes)
   return {
     handle = ffi.gc(handle, lib.penguin_exact_matcher_free),
     result_capacity = lib.penguin_exact_matcher_result_capacity(handle),
-    source_texts = texts,
     text_count = text_count,
   }
 end
