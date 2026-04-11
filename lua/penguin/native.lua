@@ -15,7 +15,7 @@ int penguin_stub_version(void);
 typedef struct penguin_exact_matcher penguin_exact_matcher;
 penguin_exact_matcher *penguin_exact_matcher_new(const char *const *texts, const int *text_lengths, int text_count, int text_bytes);
 int penguin_exact_matcher_result_capacity(const penguin_exact_matcher *matcher);
-const char *penguin_exact_matcher_text_at(const penguin_exact_matcher *matcher, int index);
+const char *penguin_exact_matcher_lower_text_at(const penguin_exact_matcher *matcher, int index);
 int penguin_exact_matcher_text_length_at(const penguin_exact_matcher *matcher, int index);
 void penguin_exact_matcher_free(penguin_exact_matcher *matcher);
 ]])
