@@ -6,6 +6,7 @@
 
 The runtime target is:
 
+- maximum raw speed, not merely acceptable speed
 - C-only filtering
 - no Lua fallback in normal operation
 - Lua matcher deleted after C is validated
@@ -14,6 +15,13 @@ The runtime target is:
 - temporary Lua-to-C build handoff only; matcher-owned memory lives natively after construction
 
 To get there without huge diffs, native work should land in tiny vertical slices.
+
+Every slice should be judged against the real objective:
+
+- tighter native ownership
+- less Lua work on the query path
+- fewer allocations
+- better cache behavior
 
 ## Step A: Build Plumbing Only
 

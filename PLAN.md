@@ -2,6 +2,9 @@
 
 > A fast command-entry picker for Neovim.
 > Telescope-like presentation, but smaller, lighter, and built around a C hot path.
+>
+> Main goal: maximum raw speed.
+> "Fast enough" is not the bar for this project.
 
 ## 🎯 What `penguin.nvim` Is
 
@@ -180,6 +183,8 @@ README.md                   -- installation and usage
 
 Non-negotiable principles:
 
+- maximum raw speed is the primary optimization target
+- reject "fast enough" tradeoffs on the hot path unless measurement forces them
 - tight V1 scope around Ex command entry
 - small dependency surface
 - no heavy framework dependency

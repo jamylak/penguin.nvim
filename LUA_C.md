@@ -1,6 +1,9 @@
 # ⚡ Lua / C Speed Plan
 
 > Maximum raw-speed direction for `penguin.nvim`.
+>
+> The standard is not "fast enough."
+> The standard is the fastest practical runtime shape we can defend with benchmarks.
 
 ## Fastest Practical Shape
 
