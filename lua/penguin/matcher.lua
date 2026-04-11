@@ -282,25 +282,28 @@ function M.filter(items, query, limit)
     local max_items = math.min(limit or #items, #items)
 
     for index = 1, max_items do
-      table.insert(results, {
+      results[index] = {
         item = items[index],
         score = 0,
-      })
+      }
     end
 
     return results
   end
 
   local results = {}
+  local result_count = 0
 
-  for _, item in ipairs(items) do
+  for index = 1, #items do
+    local item = items[index]
     local score = M.score(query, item.text)
 
     if score then
-      table.insert(results, {
+      result_count = result_count + 1
+      results[result_count] = {
         item = item,
         score = score,
-      })
+      }
     end
   end
 
