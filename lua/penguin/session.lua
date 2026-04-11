@@ -69,9 +69,6 @@ function Session:new(config)
     selection = 0,
   }, self)
 
-  ui.open(session)
-  session:refresh()
-
   return session
 end
 
@@ -189,6 +186,8 @@ function M.open(config, on_close)
   local session = Session:new(config)
   session.native_history_matcher = build_native_history_matcher(session.entries)
   session.on_close = on_close
+  ui.open(session)
+  session:refresh()
   return session
 end
 
