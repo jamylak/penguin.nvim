@@ -49,12 +49,12 @@ function M.probe()
 end
 
 -- First native-state slice only.
--- Create one long-lived native matcher object, keep it across queries, and
--- let C free it later when Lua drops the handle.
--- This constructor only passes text_count, so it is not yet sizing native
--- candidate storage from the actual string bytes. That fuller allocation step
--- lands later when the matcher starts owning real candidate data.
-function M.new_exact_matcher(text_count, text_bytes)
+-- Create one long-lived native matcher object from the real candidate list,
+-- keep it across queries, and let C free it later when Lua drops the handle.
+-- The native side still only receives aggregate sizing numbers for now.
+function M.new_exact_matcher(items)
+  local text_count = #items
+  local text_bytes = 0
   local handle
 
   if text_count == 0 then
@@ -62,6 +62,10 @@ function M.new_exact_matcher(text_count, text_bytes)
       handle = nil,
       text_count = 0,
     }
+  end
+
+  for index = 1, text_count do
+    text_bytes = text_bytes + #items[index].text
   end
 
   handle = lib.penguin_exact_matcher_new(text_count, text_bytes)
@@ -74,6 +78,7 @@ function M.new_exact_matcher(text_count, text_bytes)
     handle = ffi.gc(handle, lib.penguin_exact_matcher_free),
     result_capacity = lib.penguin_exact_matcher_result_capacity(handle),
     text_count = text_count,
+    text_bytes = text_bytes,
   }
 end
 

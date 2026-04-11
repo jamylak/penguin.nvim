@@ -15,10 +15,15 @@ local exact
 assert(native.available)
 assert(native.version() == 1)
 
-exact = native.new_exact_matcher(3, #("checkhealthwritehealthcheck"))
+exact = native.new_exact_matcher({
+  { text = "checkhealth" },
+  { text = "write" },
+  { text = "healthcheck" },
+})
 
 assert(exact.handle ~= nil)
 assert(exact.text_count == 3)
+assert(exact.text_bytes == #("checkhealthwritehealthcheck"))
 assert(exact.result_capacity == 3)
 
 require("penguin").setup({
