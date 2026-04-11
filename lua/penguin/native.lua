@@ -13,7 +13,11 @@ end
 ffi.cdef([[
 int penguin_stub_version(void);
 typedef struct penguin_exact_matcher penguin_exact_matcher;
-penguin_exact_matcher *penguin_exact_matcher_new(const char *const *texts, const int *text_lengths, int text_count, int text_bytes);
+typedef struct {
+  const char *text;
+  int length;
+} penguin_exact_matcher_text;
+penguin_exact_matcher *penguin_exact_matcher_new(const penguin_exact_matcher_text *texts, int text_count, int text_bytes);
 int penguin_exact_matcher_result_capacity(const penguin_exact_matcher *matcher);
 const char *penguin_exact_matcher_lower_text_at(const penguin_exact_matcher *matcher, int index);
 int penguin_exact_matcher_text_length_at(const penguin_exact_matcher *matcher, int index);
@@ -59,7 +63,6 @@ function M.new_exact_matcher(items)
   local text_bytes = 0
   local handle
   local texts
-  local text_lengths
 
   if text_count == 0 then
     return {
@@ -68,19 +71,18 @@ function M.new_exact_matcher(items)
     }
   end
 
-  texts = ffi.new("const char *[?]", text_count)
-  text_lengths = ffi.new("int[?]", text_count)
+  texts = ffi.new("penguin_exact_matcher_text[?]", text_count)
 
   for index = 1, text_count do
     local text = items[index].text
     local length = #text
 
     text_bytes = text_bytes + length
-    texts[index - 1] = text
-    text_lengths[index - 1] = length
+    texts[index - 1].text = text
+    texts[index - 1].length = length
   end
 
-  handle = lib.penguin_exact_matcher_new(texts, text_lengths, text_count, text_bytes)
+  handle = lib.penguin_exact_matcher_new(texts, text_count, text_bytes)
 
   if handle == nil then
     error("failed to build native exact matcher")

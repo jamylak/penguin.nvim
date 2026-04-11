@@ -19,6 +19,11 @@ typedef struct penguin_result {
   int score;
 } penguin_result;
 
+typedef struct penguin_exact_matcher_text {
+  const char *text;
+  int length;
+} penguin_exact_matcher_text;
+
 typedef struct penguin_exact_matcher {
   int text_count;
   int result_capacity;
@@ -45,10 +50,10 @@ static unsigned char penguin_ascii_lower_byte(unsigned char byte) {
  * scans: reusable result space, per-entry offsets/lengths, and one contiguous
  * pre-lowercased corpus buffer owned by C.
  */
-penguin_exact_matcher *penguin_exact_matcher_new(const char *const *texts,
-                                                 const int *text_lengths,
-                                                 int text_count,
-                                                 int text_bytes) {
+penguin_exact_matcher *penguin_exact_matcher_new(
+    const penguin_exact_matcher_text *texts,
+    int text_count,
+    int text_bytes) {
   size_t total_bytes;
   size_t result_bytes;
   size_t offset_bytes;
@@ -60,16 +65,16 @@ penguin_exact_matcher *penguin_exact_matcher_new(const char *const *texts,
   int index;
   int offset = 0;
 
-  if (text_count <= 0 || text_bytes < 0 || !texts || !text_lengths) {
+  if (text_count <= 0 || text_bytes < 0 || !texts) {
     return 0;
   }
 
   for (index = 0; index < text_count; index++) {
-    if (!texts[index] || text_lengths[index] < 0) {
+    if (!texts[index].text || texts[index].length < 0) {
       return 0;
     }
 
-    total_text_bytes += text_lengths[index];
+    total_text_bytes += texts[index].length;
   }
 
   if (total_text_bytes != text_bytes) {
@@ -110,7 +115,7 @@ penguin_exact_matcher *penguin_exact_matcher_new(const char *const *texts,
   matcher->lower_corpus_text = (char *)cursor;
 
   for (index = 0; index < text_count; index++) {
-    int length = text_lengths[index];
+    int length = texts[index].length;
     int byte_index;
 
     matcher->text_offsets[index] = offset;
@@ -120,7 +125,7 @@ penguin_exact_matcher *penguin_exact_matcher_new(const char *const *texts,
       for (byte_index = 0; byte_index < length; byte_index++) {
         matcher->lower_corpus_text[offset + byte_index] =
             (char)penguin_ascii_lower_byte(
-                (unsigned char)texts[index][byte_index]);
+                (unsigned char)texts[index].text[byte_index]);
       }
     }
 
