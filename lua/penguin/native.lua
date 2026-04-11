@@ -13,7 +13,7 @@ end
 ffi.cdef([[
 int penguin_stub_version(void);
 typedef struct penguin_exact_matcher penguin_exact_matcher;
-penguin_exact_matcher *penguin_exact_matcher_new(int text_count);
+penguin_exact_matcher *penguin_exact_matcher_new(int text_count, int text_bytes);
 int penguin_exact_matcher_result_capacity(const penguin_exact_matcher *matcher);
 void penguin_exact_matcher_free(penguin_exact_matcher *matcher);
 ]])
@@ -54,7 +54,7 @@ end
 -- This constructor only passes text_count, so it is not yet sizing native
 -- candidate storage from the actual string bytes. That fuller allocation step
 -- lands later when the matcher starts owning real candidate data.
-function M.new_exact_matcher(texts)
+function M.new_exact_matcher(texts, text_bytes)
   local text_count = #texts
   local handle
 
@@ -65,7 +65,7 @@ function M.new_exact_matcher(texts)
     }
   end
 
-  handle = lib.penguin_exact_matcher_new(text_count)
+  handle = lib.penguin_exact_matcher_new(text_count, text_bytes)
 
   if handle == nil then
     error("failed to build native exact matcher")

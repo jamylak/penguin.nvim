@@ -21,6 +21,7 @@ typedef struct penguin_result {
 typedef struct penguin_exact_matcher {
   int text_count;
   int result_capacity;
+  int text_bytes;
   penguin_result *results;
 } penguin_exact_matcher;
 
@@ -33,13 +34,13 @@ int penguin_stub_version(void) { return 1; }
  * candidate storage from the actual string bytes. Query logic and fuller
  * native allocations land in later diffs.
  */
-penguin_exact_matcher *penguin_exact_matcher_new(int text_count) {
+penguin_exact_matcher *penguin_exact_matcher_new(int text_count, int text_bytes) {
   size_t total_bytes;
   size_t result_bytes;
   unsigned char *cursor;
   penguin_exact_matcher *matcher;
 
-  if (text_count <= 0) {
+  if (text_count <= 0 || text_bytes < 0) {
     return 0;
   }
 
@@ -58,6 +59,7 @@ penguin_exact_matcher *penguin_exact_matcher_new(int text_count) {
   cursor = (unsigned char *)(matcher + 1);
   matcher->text_count = text_count;
   matcher->result_capacity = text_count;
+  matcher->text_bytes = text_bytes;
   /* Result entries are stored as contiguous {index, score} pairs because the
    * hot path naturally produces and consumes them together. */
   matcher->results = (penguin_result *)cursor;

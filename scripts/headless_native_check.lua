@@ -19,7 +19,7 @@ exact = native.new_exact_matcher({
   "checkhealth",
   "write",
   "healthcheck",
-})
+}, #("checkhealthwritehealthcheck"))
 
 assert(exact.handle ~= nil)
 assert(exact.text_count == 3)
