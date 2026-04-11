@@ -15,6 +15,8 @@ int penguin_stub_version(void);
 typedef struct penguin_exact_matcher penguin_exact_matcher;
 penguin_exact_matcher *penguin_exact_matcher_new(const char *const *texts, const int *text_lengths, int text_count, int text_bytes);
 int penguin_exact_matcher_result_capacity(const penguin_exact_matcher *matcher);
+const char *penguin_exact_matcher_text_at(const penguin_exact_matcher *matcher, int index);
+int penguin_exact_matcher_text_length_at(const penguin_exact_matcher *matcher, int index);
 void penguin_exact_matcher_free(penguin_exact_matcher *matcher);
 ]])
 
@@ -48,10 +50,10 @@ function M.probe()
   return M.version()
 end
 
--- First native-state slice only.
--- Create one long-lived native matcher object from the real candidate list,
--- keep it across queries, and let C free it later when Lua drops the handle.
--- The native side still only receives aggregate sizing numbers for now.
+-- Native corpus-ownership slice.
+-- Build one long-lived matcher object from the candidate list, copy the
+-- candidate bytes into native-owned storage once, and keep that matcher across
+-- queries until Lua drops the handle.
 function M.new_exact_matcher(items)
   local text_count = #items
   local text_bytes = 0

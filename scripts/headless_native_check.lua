@@ -4,6 +4,7 @@ local function repo_root()
 end
 
 local root = repo_root()
+local ffi = require("ffi")
 
 vim.opt.runtimepath:append(root)
 vim.cmd.source(vim.fs.joinpath(root, "plugin", "penguin.lua"))
@@ -25,6 +26,11 @@ assert(exact.handle ~= nil)
 assert(exact.text_count == 3)
 assert(exact.text_bytes == #("checkhealthwritehealthcheck"))
 assert(exact.result_capacity == 3)
+assert(native.library.penguin_exact_matcher_text_length_at(exact.handle, 0) == #"checkhealth")
+assert(native.library.penguin_exact_matcher_text_length_at(exact.handle, 1) == #"write")
+assert(ffi.string(native.library.penguin_exact_matcher_text_at(exact.handle, 0), #"checkhealth") == "checkhealth")
+assert(ffi.string(native.library.penguin_exact_matcher_text_at(exact.handle, 1), #"write") == "write")
+assert(ffi.string(native.library.penguin_exact_matcher_text_at(exact.handle, 2), #"healthcheck") == "healthcheck")
 
 require("penguin").setup({
   native = {
