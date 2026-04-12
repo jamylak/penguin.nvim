@@ -56,6 +56,8 @@ Current controls:
 - non-empty queries can show both history hits and live command completions
 - `Up` / `Down` to move
 - `Ctrl-j` / `Ctrl-k` to move
+- `Ctrl-n` / `Ctrl-p` to move
+- `Ctrl-w` to delete the previous word
 - `Enter` executes the selected item
 - `Shift-Enter` executes the current text box contents directly
 - `Ctrl-e` fills the text box from the selected item without executing
