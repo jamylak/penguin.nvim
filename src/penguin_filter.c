@@ -19,6 +19,11 @@ typedef struct penguin_result {
   int score;
 } penguin_result;
 
+typedef struct penguin_query_result {
+  int count;
+  const penguin_result *results;
+} penguin_query_result;
+
 typedef struct penguin_exact_matcher_text {
   const char *text;
   int length;
@@ -31,6 +36,7 @@ typedef struct penguin_exact_matcher {
   int *text_offsets;
   int *text_lengths;
   char *lower_corpus_text;
+  penguin_query_result query_result;
   penguin_result *results;
 } penguin_exact_matcher;
 
@@ -175,10 +181,11 @@ int penguin_exact_matcher_result_capacity(
   return matcher->result_capacity;
 }
 
-int penguin_exact_matcher_find_exact(penguin_exact_matcher *matcher,
-                                     const char *query,
-                                     int query_length) {
-  int result_count = 0;
+const penguin_query_result *penguin_exact_matcher_find_exact(
+    penguin_exact_matcher *matcher,
+    const char *query,
+    int query_length) {
+  int count = 0;
   int index;
 
   if (!matcher || !query || query_length <= 0) {
@@ -192,13 +199,16 @@ int penguin_exact_matcher_find_exact(penguin_exact_matcher *matcher,
         query, query_length, candidate, matcher->text_lengths[index]);
 
     if (score >= 0) {
-      matcher->results[result_count].index = index;
-      matcher->results[result_count].score = score;
-      result_count++;
+      matcher->results[count].index = index;
+      matcher->results[count].score = score;
+      count++;
     }
   }
 
-  return result_count;
+  matcher->query_result.count = count;
+  matcher->query_result.results = matcher->results;
+
+  return &matcher->query_result;
 }
 
 const char *penguin_exact_matcher_lower_text_at(
