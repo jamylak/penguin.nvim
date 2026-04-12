@@ -259,7 +259,7 @@ for _, scenario in ipairs(scenarios) do
     table.concat({
       "scenario=" .. scenario.name,
       "size=" .. scenario.size,
-      "backend=matcher_native_exact",
+      "backend=matcher_native_fuzzy_single",
       ("total_ms=%.3f"):format(matcher_native_result.total_ms),
       ("per_query_ms=%.6f"):format(matcher_native_per_query_ms),
       "matches=" .. matcher_native_result.total_matches,
@@ -275,7 +275,7 @@ for _, scenario in ipairs(scenarios) do
         bar(matcher_lua_per_query_ms, matcher_max_per_query_ms, 32),
         matcher_lua_per_query_ms
       ),
-      ("matcher_native_exact|%s| %.6f ms/query"):format(
+      ("matcher_native_fuzzy_single|%s| %.6f ms/query"):format(
         bar(matcher_native_per_query_ms, matcher_max_per_query_ms, 32),
         matcher_native_per_query_ms
       ),

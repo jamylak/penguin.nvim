@@ -13,7 +13,7 @@ Current stage:
 - Ex command history is collected from Neovim
 - live Ex command suggestions are merged into non-empty queries
 - empty query shows recent commands first
-- native build plumbing exists, but filtering still runs in Lua
+- the single-token native fuzzy slice is wired in for runtime testing
 - a temporary native probe path can be enabled for development only
 - selected or typed commands can be executed from the picker
 
@@ -79,9 +79,9 @@ Manual native dev session with the temporary probe enabled:
 make run-native
 ```
 
-That launches Neovim using [scripts/minimal_native_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_native_init.lua), builds the native module first, and enables the current native exact-filter runtime slice for manual testing.
+That launches Neovim using [scripts/minimal_native_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_native_init.lua), builds the native module first, and enables the current native single-token fuzzy runtime slice for manual testing.
 
-At the current rollout stage this is still not the final C-only fuzzy runtime filter. The history exact-substring path is native, while broader fuzzy behavior still remains in Lua.
+At the current rollout stage this is still not the final C-only fuzzy runtime filter. The single-token compact fuzzy path is native, while multi-token and segmented fuzzy behavior still remains in Lua.
 
 Optional native stub build:
 
@@ -113,6 +113,6 @@ Headless benchmark run:
 make bench
 ```
 
-That runs [scripts/headless_bench.lua](/Users/james/proj/penguin.nvim/scripts/headless_bench.lua), which compares the current Lua exact-scan baseline and native exact-scan baseline across multiple dataset sizes and query scenarios.
+That runs [scripts/headless_bench.lua](/Users/james/proj/penguin.nvim/scripts/headless_bench.lua), which compares the current Lua exact-scan baseline, native exact-scan baseline, and the current matcher runtime slice across multiple dataset sizes and query scenarios.
 
 The benchmark output includes both raw timings and a simple ASCII bar chart per scenario.

@@ -28,6 +28,7 @@ typedef struct {
 penguin_exact_matcher *penguin_exact_matcher_new(const penguin_exact_matcher_text *texts, int text_count, int text_bytes);
 int penguin_exact_matcher_result_capacity(const penguin_exact_matcher *matcher);
 const penguin_query_result *penguin_exact_matcher_find_exact(penguin_exact_matcher *matcher, const char *query, int query_length);
+const penguin_query_result *penguin_exact_matcher_find_fuzzy(penguin_exact_matcher *matcher, const char *query, int query_length);
 const char *penguin_exact_matcher_lower_text_at(const penguin_exact_matcher *matcher, int index);
 int penguin_exact_matcher_text_length_at(const penguin_exact_matcher *matcher, int index);
 void penguin_exact_matcher_free(penguin_exact_matcher *matcher);
@@ -74,6 +75,50 @@ function M.find_exact(matcher, items, query, limit)
   end
 
   query_result = lib.penguin_exact_matcher_find_exact(
+    matcher.handle,
+    normalized_query,
+    #normalized_query
+  )
+
+  if query_result == nil then
+    return results
+  end
+
+  result_count = query_result.count
+
+  if limit then
+    result_count = math.min(result_count, limit)
+  end
+
+  for index = 0, result_count - 1 do
+    local item = items[query_result.results[index].index + 1]
+
+    if item then
+      results[index + 1] = {
+        item = item,
+        score = query_result.results[index].score,
+      }
+    end
+  end
+
+  return results
+end
+
+function M.find_fuzzy(matcher, items, query, limit)
+  -- Temporary boundary normalization: the current native fuzzy entrypoint
+  -- matches against the matcher's compact corpus text, so Lua still lowercases
+  -- and strips separators before handing one query token to C. Remove this
+  -- once full query preprocessing/token handling moves into native code.
+  local normalized_query = (query or ""):lower():gsub("[^%w]+", "")
+  local query_result
+  local result_count
+  local results = {}
+
+  if not matcher or matcher.handle == nil or normalized_query == "" then
+    return results
+  end
+
+  query_result = lib.penguin_exact_matcher_find_fuzzy(
     matcher.handle,
     normalized_query,
     #normalized_query

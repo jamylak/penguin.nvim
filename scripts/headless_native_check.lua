@@ -33,6 +33,7 @@ assert(ffi.string(native.library.penguin_exact_matcher_lower_text_at(exact.handl
 assert(ffi.string(native.library.penguin_exact_matcher_lower_text_at(exact.handle, 2), #"healthcheck") == "healthcheck")
 local query_result = native.library.penguin_exact_matcher_find_exact(exact.handle, "check", #"check")
 local first_results = query_result.results
+local fuzzy_result
 
 assert(query_result ~= nil)
 assert(query_result.count == 2)
@@ -51,6 +52,11 @@ query_result = native.library.penguin_exact_matcher_find_exact(exact.handle, "zz
 assert(query_result ~= nil)
 assert(query_result.count == 0)
 assert(query_result.results == first_results)
+fuzzy_result = native.library.penguin_exact_matcher_find_fuzzy(exact.handle, "ckh", #"ckh")
+assert(fuzzy_result ~= nil)
+assert(fuzzy_result.count == 1)
+assert(fuzzy_result.results[0].index == 0)
+assert(fuzzy_result.results[0].score == 276)
 
 require("penguin").setup({
   native = {
@@ -58,7 +64,7 @@ require("penguin").setup({
   },
 })
 
-assert(matcher.backend_name() == "native-exact")
+assert(matcher.backend_name() == "native-fuzzy-single")
 assert(matcher.score("ckh", "checkhealth"))
 assert(matcher.score("splbot", "vertical botright split"))
 assert(not matcher.score("zz", "write"))
@@ -76,6 +82,8 @@ assert(session.native_history_matcher.handle ~= nil)
 assert(session.native_history_matcher.text_count == #session.entries)
 session:set_query("check")
 assert(#session.matches >= 1)
+session:set_query("ckh")
+assert(#session.matches >= 1)
 
 local saw_native_history_match = false
 local saw_completion_match = false
@@ -88,6 +96,8 @@ for _, match in ipairs(session.matches) do
 end
 
 assert(saw_native_history_match)
+
+session:set_query("check")
 
 for _, match in ipairs(session.matches) do
   if match.item.source == "completion" then

@@ -3,7 +3,7 @@ local native = require("penguin.native")
 -- Temporary Step C wiring: this probes the native boundary during scoring,
 -- but Lua still computes and returns the real matcher result.
 local native_probe_enabled = false
-local native_exact_enabled = false
+local native_fuzzy_single_enabled = false
 
 local function normalize(text)
   return (text or ""):lower()
@@ -184,7 +184,7 @@ function M.configure(config)
     and config.native.dev_probe
     and native.available
     or false
-  native_exact_enabled = config
+  native_fuzzy_single_enabled = config
     and config.native
     and config.native.runtime_exact
     and native.available
@@ -275,8 +275,8 @@ function M.score(query, text)
 end
 
 function M.backend_name()
-  if native_exact_enabled then
-    return "native-exact"
+  if native_fuzzy_single_enabled then
+    return "native-fuzzy-single"
   end
 
   if native_probe_enabled then
@@ -287,7 +287,9 @@ function M.backend_name()
 end
 
 function M.filter(items, query, limit, opts)
-  if vim.trim(query or "") == "" then
+  local trimmed_query = vim.trim(query or "")
+
+  if trimmed_query == "" then
     local results = {}
     local max_items = math.min(limit or #items, #items)
 
@@ -301,8 +303,30 @@ function M.filter(items, query, limit, opts)
     return results
   end
 
-  if native_exact_enabled and opts and opts.native_matcher then
-    return native.find_exact(opts.native_matcher, items, query, limit)
+  -- Temporary native rollout shape:
+  -- query normalization still happens in Lua, then exactly one compact fuzzy
+  -- token is handed to C. Multi-token and segmented fuzzy behavior remains in
+  -- Lua for now so existing matching semantics do not silently change while
+  -- the native matcher is still incomplete. Remove this split path once the
+  -- full query-time matcher runs in C.
+  local normalized_query = normalize(query)
+  local single_token = nil
+  local token_count = 0
+
+  for token in normalized_query:gmatch("%S+") do
+    local normalized_token = compact(token)
+
+    if normalized_token ~= "" then
+      token_count = token_count + 1
+
+      if token_count == 1 then
+        single_token = normalized_token
+      end
+    end
+  end
+
+  if native_fuzzy_single_enabled and opts and opts.native_matcher and token_count == 1 then
+    return M.sort_results(native.find_fuzzy(opts.native_matcher, items, single_token, limit), limit)
   end
 
   local results = {}
@@ -310,7 +334,7 @@ function M.filter(items, query, limit, opts)
 
   for index = 1, #items do
     local item = items[index]
-    local score = M.score(query, item.text)
+    local score = M.score(normalized_query, item.text)
 
     if score then
       result_count = result_count + 1
