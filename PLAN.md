@@ -185,6 +185,8 @@ Non-negotiable principles:
 
 - maximum raw speed is the primary optimization target
 - reject "fast enough" tradeoffs on the hot path unless measurement forces them
+- one Lua -> C call per query on the hot path; reject per-candidate or
+  per-result helper-call designs
 - tight V1 scope around Ex command entry
 - small dependency surface
 - no heavy framework dependency
@@ -208,6 +210,8 @@ Still-missing speed-critical pieces for the final native path:
 - native-owned normalized text and metadata
 - full query-time matching and scoring inside C
 - native top-k selection / ranking path
+- consider a build-time index only if benchmarks show it beats a tight full scan
+  for real command-history workloads
 - compact result records returned to Lua only
 - benchmark and assembly validation of the final hot path
 

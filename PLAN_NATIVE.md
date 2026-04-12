@@ -22,6 +22,8 @@ Every slice should be judged against the real objective:
 - less Lua work on the query path
 - fewer allocations
 - better cache behavior
+- one Lua -> C call per query on the hot path; reject per-candidate or
+  per-result helper-call designs
 
 ## Step A: Build Plumbing Only
 
@@ -83,9 +85,13 @@ Still missing before the final fast path:
 
 - native-owned corpus preprocessing at build time
 - normalized text and metadata stored in C
+- one bulk query entrypoint that performs scan, scoring, and final result
+  selection without additional Lua -> C helper calls
 - no repeated Lua-side marshalling on the query path
 - full query-time matching and scoring in C
 - native top-k selection / ranking
+- consider whether a build-time index helps this workload; only keep it if
+  benchmarks beat the tight full-scan path on real command-history datasets
 - compact result records returned to Lua only
 - final benchmark, assembly, and SIMD validation passes
 
