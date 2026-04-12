@@ -56,6 +56,7 @@ static int penguin_exact_substring_score(const char *needle,
                                          int needle_length,
                                          const char *haystack,
                                          int haystack_length) {
+  unsigned char first_byte;
   int start;
   int last_start;
 
@@ -65,8 +66,13 @@ static int penguin_exact_substring_score(const char *needle,
   }
 
   last_start = haystack_length - needle_length;
+  first_byte = (unsigned char)needle[0];
 
   for (start = 0; start <= last_start; start++) {
+    if ((unsigned char)haystack[start] != first_byte) {
+      continue;
+    }
+
     if (memcmp(haystack + start, needle, (size_t)needle_length) == 0) {
       int score = 300 - ((start + 1) * 4) - (haystack_length - needle_length);
 
