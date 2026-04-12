@@ -29,6 +29,14 @@ local function run_after_close(text)
   end)
 end
 
+local function build_native_matcher(entries)
+  if not native.available then
+    return nil
+  end
+
+  return native.new_exact_matcher(entries)
+end
+
 local function merge_matches(history_matches, completion_matches, limit)
   local merged = {}
   local positions = {}
@@ -74,10 +82,13 @@ end
 
 function Session:refresh()
   local limit = self.config.ui.max_results
+  local completion_items = completion.collect(self.query)
   local history_matches = matcher.filter(self.entries, self.query, limit, {
     native_matcher = self.native_history_matcher,
   })
-  local completion_matches = matcher.filter(completion.collect(self.query), self.query, limit)
+  local completion_matches = matcher.filter(completion_items, self.query, limit, {
+    native_matcher = build_native_matcher(completion_items),
+  })
 
   self.matches = merge_matches(history_matches, completion_matches, limit)
 
@@ -170,17 +181,9 @@ end
 
 local M = {}
 
-local function build_native_history_matcher(entries)
-  if not native.available then
-    return nil
-  end
-
-  return native.new_exact_matcher(entries)
-end
-
 function M.open(config, on_close)
   local session = Session:new(config)
-  session.native_history_matcher = build_native_history_matcher(session.entries)
+  session.native_history_matcher = build_native_matcher(session.entries)
   session.on_close = on_close
   ui.open(session)
   session:refresh()

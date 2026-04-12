@@ -78,6 +78,7 @@ session:set_query("check")
 assert(#session.matches >= 1)
 
 local saw_native_history_match = false
+local saw_completion_match = false
 
 for _, match in ipairs(session.matches) do
   if match.item.text == "checkhealth" and match.item.source == "history" then
@@ -87,6 +88,15 @@ for _, match in ipairs(session.matches) do
 end
 
 assert(saw_native_history_match)
+
+for _, match in ipairs(session.matches) do
+  if match.item.source == "completion" then
+    saw_completion_match = true
+    break
+  end
+end
+
+assert(saw_completion_match)
 
 require("penguin").close()
 
