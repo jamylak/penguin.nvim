@@ -42,6 +42,11 @@ assert(query_result.results[0].score == 320)
 assert(query_result.results[1].index == 2)
 assert(query_result.results[1].score == 266)
 
+query_result = native.library.penguin_exact_matcher_find_exact(exact.handle, "check", #"check")
+assert(query_result ~= nil)
+assert(query_result.count == 2)
+assert(query_result.results == first_results)
+
 query_result = native.library.penguin_exact_matcher_find_exact(exact.handle, "zzz", #"zzz")
 assert(query_result ~= nil)
 assert(query_result.count == 0)
