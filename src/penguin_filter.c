@@ -99,6 +99,82 @@ static int penguin_exact_substring_score(const char *needle,
   return -1;
 }
 
+/* First native fuzzy-scoring slice. Keep exact substring scoring as the fast
+ * strong path, then fall back to subsequence scoring on compact candidate
+ * text for separator-crossing queries. */
+static int penguin_subsequence_score(const char *needle,
+                                     int needle_length,
+                                     const char *haystack,
+                                     int haystack_length) {
+  int substring_score = penguin_exact_substring_score(needle, needle_length,
+                                                      haystack, haystack_length);
+  /* Continue scanning from just after the last matched byte. */
+  int position = 0;
+  /* First matched byte in the haystack, used for prefix/earliness bias. */
+  int first_index = -1;
+  /* Bytes skipped between matched characters. */
+  int gaps = 0;
+  /* Neighboring matched characters that stay contiguous. */
+  int adjacent = 0;
+  /* Previous matched byte index so adjacency is cheap to detect. */
+  int previous = -1;
+  int index;
+
+  if (substring_score >= 0) {
+    /* Exact substring hit stays the stronger fast path. */
+    return substring_score;
+  }
+
+  if (!needle || !haystack || needle_length <= 0 || haystack_length <= 0) {
+    return -1;
+  }
+
+  /* After exact substring misses, scan for the native fuzzy subsequence path. */
+  for (index = 0; index < needle_length; index++) {
+    unsigned char byte = (unsigned char)needle[index];
+    int found = -1;
+    int scan_index;
+
+    /* Walk forward until this query byte is found in order. */
+    for (scan_index = position; scan_index < haystack_length; scan_index++) {
+      if ((unsigned char)haystack[scan_index] == byte) {
+        found = scan_index;
+        break;
+      }
+    }
+
+    if (found < 0) {
+      /* Subsequence matching fails as soon as one query byte cannot be placed. */
+      return -1;
+    }
+
+    if (first_index < 0) {
+      /* Remember where the subsequence starts for early-match bias later. */
+      first_index = found;
+    }
+
+    if (previous >= 0 && found == previous + 1) {
+      /* Reward characters that stay contiguous instead of scattering apart. */
+      adjacent++;
+    }
+
+    gaps += found - position;
+    previous = found;
+    position = found + 1;
+  }
+
+  {
+    /* Favor tighter, earlier, more contiguous subsequence matches. */
+    int score = 120 - (gaps * 3) + (adjacent * 8) - ((first_index + 1) * 2);
+
+    if (first_index == 0) {
+      score += 15;
+    }
+
+    return score;
+  }
+}
+
 /* Keep the whole matcher in one allocation and move candidate-text ownership
  * into that native state now. Query logic still lands in later diffs, but the
  * matcher already gets the runtime shape needed for fast case-insensitive
