@@ -106,6 +106,13 @@ Still missing before the final fast path:
 
 - make C the only runtime backend
 - delete Lua fallback behavior
+- if any Lua matcher code is retained temporarily, mark it everywhere as
+  benchmark-only / development-only baseline code and keep it unreachable from
+  normal runtime paths
+- audit config, docs, benchmarks, and call sites so Lua is never presented as a
+  supported runtime backend once native is the default
+- prefer full deletion of the Lua core matcher after native parity and
+  correctness are confirmed
 - keep benchmark and correctness evidence for the transition
 
 ## Benchmark Principle
