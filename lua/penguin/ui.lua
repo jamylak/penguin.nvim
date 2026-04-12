@@ -161,6 +161,18 @@ function M.open(session)
     session:move_selection(-1)
   end, map_options)
 
+  vim.keymap.set({ "i", "n" }, "<C-n>", function()
+    session:move_selection(1)
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<C-p>", function()
+    session:move_selection(-1)
+  end, map_options)
+
+  vim.keymap.set({ "i", "n" }, "<C-w>", function()
+    session:delete_word_backward()
+  end, map_options)
+
   vim.keymap.set({ "i", "n" }, "<CR>", function()
     session:confirm()
   end, map_options)

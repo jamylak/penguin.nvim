@@ -87,6 +87,15 @@ end
 assert(saw_history)
 assert(saw_completion)
 
+session:set_query("let g:penguin word")
+session:delete_word_backward()
+assert(session.query == "let g:penguin")
+assert(vim.api.nvim_buf_get_lines(session.prompt_buf, 0, 1, false)[1] == "let g:penguin")
+
+assert(vim.fn.maparg("<C-n>", "i", false, true).lhs == "<C-N>")
+assert(vim.fn.maparg("<C-p>", "i", false, true).lhs == "<C-P>")
+assert(vim.fn.maparg("<C-w>", "i", false, true).lhs == "<C-W>")
+
 require("penguin").close()
 
 vim.cmd("qa!")

@@ -144,6 +144,23 @@ function Session:complete_selection()
   ui.focus_prompt(self)
 end
 
+function Session:delete_word_backward()
+  local text = self.query or ""
+  local trimmed = text:gsub("%s+$", "")
+  local next_query
+
+  if trimmed == "" then
+    next_query = ""
+  else
+    next_query = trimmed:gsub("%S+$", "")
+  end
+
+  next_query = next_query:gsub("%s+$", "")
+  self:set_query(next_query)
+  ui.set_prompt_text(self, next_query)
+  ui.focus_prompt(self)
+end
+
 function Session:submit_query()
   local text = self.query
 
