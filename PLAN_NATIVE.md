@@ -81,6 +81,13 @@ Each slice should:
 - add one or a few focused checks
 - stay small enough to review quickly
 
+Native iteration workflow:
+
+- keep both a manual Neovim entrypoint and a headless verification path ready
+- add or update benchmark scenarios before deeper optimization passes
+- rerun the same benchmark scenarios before and after each non-trivial hot-path change
+- prefer small optimization diffs that still move benchmarked hot-path code
+
 Still missing before the final fast path:
 
 - native-owned corpus preprocessing at build time
@@ -114,3 +121,10 @@ Benchmarking should compare:
 - SIMD-aware native tuning when useful
 
 The benchmark harness should run inside real headless Neovim with fixed in-memory datasets and repeated matcher calls.
+
+The first benchmark harness should:
+
+- cover multiple history sizes
+- cover multiple query scenarios
+- compare Lua and native implementations on identical in-memory fixtures
+- stay easy to rerun while iterating on low-level matcher changes

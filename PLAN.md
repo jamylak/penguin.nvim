@@ -491,6 +491,12 @@ After the first C version exists, the benchmark suite should compare at least:
 2. naive C
 3. optimized C
 
+The iteration setup should always keep:
+
+- a manual Neovim dev entrypoint for interactive checking
+- a headless smoke test path
+- a headless benchmark path with multiple dataset sizes and query scenarios
+
 ### Benchmark Harness Shape
 
 The benchmark harness should run inside real headless Neovim.
