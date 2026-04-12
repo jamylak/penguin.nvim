@@ -19,6 +19,7 @@ typedef struct {
 } penguin_exact_matcher_text;
 penguin_exact_matcher *penguin_exact_matcher_new(const penguin_exact_matcher_text *texts, int text_count, int text_bytes);
 int penguin_exact_matcher_result_capacity(const penguin_exact_matcher *matcher);
+int penguin_exact_matcher_find_exact(penguin_exact_matcher *matcher, const char *query, int query_length);
 const char *penguin_exact_matcher_lower_text_at(const penguin_exact_matcher *matcher, int index);
 int penguin_exact_matcher_text_length_at(const penguin_exact_matcher *matcher, int index);
 void penguin_exact_matcher_free(penguin_exact_matcher *matcher);

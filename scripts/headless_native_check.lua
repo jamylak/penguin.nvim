@@ -31,6 +31,8 @@ assert(native.library.penguin_exact_matcher_text_length_at(exact.handle, 1) == #
 assert(ffi.string(native.library.penguin_exact_matcher_lower_text_at(exact.handle, 0), #"CheckHealth") == "checkhealth")
 assert(ffi.string(native.library.penguin_exact_matcher_lower_text_at(exact.handle, 1), #"Write") == "write")
 assert(ffi.string(native.library.penguin_exact_matcher_lower_text_at(exact.handle, 2), #"healthcheck") == "healthcheck")
+assert(native.library.penguin_exact_matcher_find_exact(exact.handle, "check", #"check") == 2)
+assert(native.library.penguin_exact_matcher_find_exact(exact.handle, "zzz", #"zzz") == 0)
 
 require("penguin").setup({
   native = {

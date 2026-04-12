@@ -44,6 +44,37 @@ static unsigned char penguin_ascii_lower_byte(unsigned char byte) {
   return byte;
 }
 
+/* Baseline exact-substring search. Correct and easy to review, but not the
+ * final optimized implementation for the raw-speed target. */
+static int penguin_exact_substring_score(const char *needle,
+                                         int needle_length,
+                                         const char *haystack,
+                                         int haystack_length) {
+  int start;
+  int last_start;
+
+  if (!needle || !haystack || needle_length <= 0 || haystack_length <= 0 ||
+      needle_length > haystack_length) {
+    return -1;
+  }
+
+  last_start = haystack_length - needle_length;
+
+  for (start = 0; start <= last_start; start++) {
+    if (memcmp(haystack + start, needle, (size_t)needle_length) == 0) {
+      int score = 300 - ((start + 1) * 4) - (haystack_length - needle_length);
+
+      if (start == 0) {
+        score += 30;
+      }
+
+      return score;
+    }
+  }
+
+  return -1;
+}
+
 /* Keep the whole matcher in one allocation and move candidate-text ownership
  * into that native state now. Query logic still lands in later diffs, but the
  * matcher already gets the runtime shape needed for fast case-insensitive
@@ -142,6 +173,32 @@ int penguin_exact_matcher_result_capacity(
   }
 
   return matcher->result_capacity;
+}
+
+int penguin_exact_matcher_find_exact(penguin_exact_matcher *matcher,
+                                     const char *query,
+                                     int query_length) {
+  int result_count = 0;
+  int index;
+
+  if (!matcher || !query || query_length <= 0) {
+    return 0;
+  }
+
+  for (index = 0; index < matcher->text_count; index++) {
+    const char *candidate =
+        matcher->lower_corpus_text + matcher->text_offsets[index];
+    int score = penguin_exact_substring_score(
+        query, query_length, candidate, matcher->text_lengths[index]);
+
+    if (score >= 0) {
+      matcher->results[result_count].index = index;
+      matcher->results[result_count].score = score;
+      result_count++;
+    }
+  }
+
+  return result_count;
 }
 
 const char *penguin_exact_matcher_lower_text_at(
