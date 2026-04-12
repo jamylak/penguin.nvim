@@ -131,9 +131,47 @@ local root = repo_root()
 vim.opt.runtimepath:append(root)
 vim.cmd.source(vim.fs.joinpath(root, "plugin", "penguin.lua"))
 
+local matcher = require("penguin.matcher")
 local native = require("penguin.native")
 
 assert(native.available)
+
+local function configure_matcher(runtime_exact)
+  matcher.configure({
+    native = {
+      runtime_exact = runtime_exact,
+    },
+  })
+end
+
+local function run_matcher_filter(entries, queries, iterations, runtime_exact)
+  local native_matcher = runtime_exact and native.new_exact_matcher(entries) or nil
+  local start_ms = hrtime_ms()
+  local total_matches = 0
+  local total_score = 0
+
+  configure_matcher(runtime_exact)
+
+  for _ = 1, iterations do
+    for _, query in ipairs(queries) do
+      local results = matcher.filter(entries, query, nil, {
+        native_matcher = native_matcher,
+      })
+
+      total_matches = total_matches + #results
+
+      for _, result in ipairs(results) do
+        total_score = total_score + result.score
+      end
+    end
+  end
+
+  return {
+    total_ms = hrtime_ms() - start_ms,
+    total_matches = total_matches,
+    total_score = total_score,
+  }
+end
 
 local scenarios = {
   {
@@ -196,6 +234,52 @@ for _, scenario in ipairs(scenarios) do
       ("lua_exact    |%s| %.6f ms/query"):format(bar(lua_per_query_ms, max_per_query_ms, 32), lua_per_query_ms),
       ("native_exact |%s| %.6f ms/query"):format(bar(native_per_query_ms, max_per_query_ms, 32), native_per_query_ms),
       ("speedup=%.2fx"):format(lua_per_query_ms / native_per_query_ms),
+    }, "\n")
+  )
+
+  local matcher_lua_result = run_matcher_filter(entries, scenario.queries, scenario.iterations, false)
+  local matcher_native_result = run_matcher_filter(entries, scenario.queries, scenario.iterations, true)
+  local matcher_lua_per_query_ms = matcher_lua_result.total_ms / query_count
+  local matcher_native_per_query_ms = matcher_native_result.total_ms / query_count
+  local matcher_max_per_query_ms = math.max(matcher_lua_per_query_ms, matcher_native_per_query_ms)
+
+  print(
+    table.concat({
+      "scenario=" .. scenario.name,
+      "size=" .. scenario.size,
+      "backend=matcher_lua",
+      ("total_ms=%.3f"):format(matcher_lua_result.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_lua_per_query_ms),
+      "matches=" .. matcher_lua_result.total_matches,
+      "score_sum=" .. matcher_lua_result.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario.name,
+      "size=" .. scenario.size,
+      "backend=matcher_native_exact",
+      ("total_ms=%.3f"):format(matcher_native_result.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_native_per_query_ms),
+      "matches=" .. matcher_native_result.total_matches,
+      "score_sum=" .. matcher_native_result.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "chart",
+      scenario.name .. "_matcher",
+      ("matcher_lua         |%s| %.6f ms/query"):format(
+        bar(matcher_lua_per_query_ms, matcher_max_per_query_ms, 32),
+        matcher_lua_per_query_ms
+      ),
+      ("matcher_native_exact|%s| %.6f ms/query"):format(
+        bar(matcher_native_per_query_ms, matcher_max_per_query_ms, 32),
+        matcher_native_per_query_ms
+      ),
+      ("speedup=%.2fx"):format(matcher_lua_per_query_ms / matcher_native_per_query_ms),
     }, "\n")
   )
 end
