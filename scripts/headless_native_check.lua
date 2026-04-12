@@ -36,7 +36,9 @@ local query_result = native.library.penguin_exact_matcher_find_exact(exact.handl
 assert(query_result ~= nil)
 assert(query_result.count == 2)
 assert(query_result.results[0].index == 0)
+assert(query_result.results[0].score == 320)
 assert(query_result.results[1].index == 2)
+assert(query_result.results[1].score == 266)
 
 query_result = native.library.penguin_exact_matcher_find_exact(exact.handle, "zzz", #"zzz")
 assert(query_result ~= nil)
