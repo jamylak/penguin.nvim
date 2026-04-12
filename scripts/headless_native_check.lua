@@ -32,9 +32,11 @@ assert(ffi.string(native.library.penguin_exact_matcher_lower_text_at(exact.handl
 assert(ffi.string(native.library.penguin_exact_matcher_lower_text_at(exact.handle, 1), #"Write") == "write")
 assert(ffi.string(native.library.penguin_exact_matcher_lower_text_at(exact.handle, 2), #"healthcheck") == "healthcheck")
 local query_result = native.library.penguin_exact_matcher_find_exact(exact.handle, "check", #"check")
+local first_results = query_result.results
 
 assert(query_result ~= nil)
 assert(query_result.count == 2)
+assert(first_results ~= nil)
 assert(query_result.results[0].index == 0)
 assert(query_result.results[0].score == 320)
 assert(query_result.results[1].index == 2)
@@ -43,6 +45,7 @@ assert(query_result.results[1].score == 266)
 query_result = native.library.penguin_exact_matcher_find_exact(exact.handle, "zzz", #"zzz")
 assert(query_result ~= nil)
 assert(query_result.count == 0)
+assert(query_result.results == first_results)
 
 require("penguin").setup({
   native = {
