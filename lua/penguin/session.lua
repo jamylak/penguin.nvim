@@ -74,7 +74,9 @@ end
 
 function Session:refresh()
   local limit = self.config.ui.max_results
-  local history_matches = matcher.filter(self.entries, self.query, limit)
+  local history_matches = matcher.filter(self.entries, self.query, limit, {
+    native_matcher = self.native_history_matcher,
+  })
   local completion_matches = matcher.filter(completion.collect(self.query), self.query, limit)
 
   self.matches = merge_matches(history_matches, completion_matches, limit)

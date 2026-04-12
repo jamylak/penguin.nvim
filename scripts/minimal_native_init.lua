@@ -10,7 +10,7 @@ vim.cmd.source(vim.fs.joinpath(root, "plugin", "penguin.lua"))
 
 require("penguin").setup({
   native = {
-    dev_probe = true,
+    runtime_exact = true,
   },
 })
 
@@ -36,7 +36,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
 
     vim.schedule(function()
       vim.notify(
-        "penguin.nvim native probe session ready. Run :Penguin",
+        "penguin.nvim native exact session ready. Run :Penguin",
         vim.log.levels.INFO
       )
     end)

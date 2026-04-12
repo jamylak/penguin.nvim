@@ -63,6 +63,46 @@ function M.probe()
   return M.version()
 end
 
+function M.find_exact(matcher, items, query, limit)
+  local normalized_query = (query or ""):lower()
+  local query_result
+  local result_count
+  local results = {}
+
+  if not matcher or matcher.handle == nil or normalized_query == "" then
+    return results
+  end
+
+  query_result = lib.penguin_exact_matcher_find_exact(
+    matcher.handle,
+    normalized_query,
+    #normalized_query
+  )
+
+  if query_result == nil then
+    return results
+  end
+
+  result_count = query_result.count
+
+  if limit then
+    result_count = math.min(result_count, limit)
+  end
+
+  for index = 0, result_count - 1 do
+    local item = items[query_result.results[index].index + 1]
+
+    if item then
+      results[index + 1] = {
+        item = item,
+        score = query_result.results[index].score,
+      }
+    end
+  end
+
+  return results
+end
+
 -- Native corpus-ownership slice.
 -- Build one long-lived matcher object from the candidate list, copy the
 -- candidate bytes into native-owned storage once, and keep that matcher across

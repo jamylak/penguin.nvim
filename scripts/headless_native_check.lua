@@ -54,11 +54,11 @@ assert(query_result.results == first_results)
 
 require("penguin").setup({
   native = {
-    dev_probe = true,
+    runtime_exact = true,
   },
 })
 
-assert(matcher.backend_name() == "lua+native-probe")
+assert(matcher.backend_name() == "native-exact")
 assert(matcher.score("ckh", "checkhealth"))
 assert(matcher.score("splbot", "vertical botright split"))
 assert(not matcher.score("zz", "write"))
@@ -74,6 +74,19 @@ assert(session)
 assert(session.native_history_matcher ~= nil)
 assert(session.native_history_matcher.handle ~= nil)
 assert(session.native_history_matcher.text_count == #session.entries)
+session:set_query("check")
+assert(#session.matches >= 1)
+
+local saw_native_history_match = false
+
+for _, match in ipairs(session.matches) do
+  if match.item.text == "checkhealth" and match.item.source == "history" then
+    saw_native_history_match = true
+    break
+  end
+end
+
+assert(saw_native_history_match)
 
 require("penguin").close()
 

@@ -77,9 +77,9 @@ Manual native dev session with the temporary probe enabled:
 make run-native
 ```
 
-That launches Neovim using [scripts/minimal_native_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_native_init.lua), builds the native module first, and keeps the current native bring-up path active for manual testing.
+That launches Neovim using [scripts/minimal_native_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_native_init.lua), builds the native module first, and enables the current native exact-filter runtime slice for manual testing.
 
-At the current rollout stage this is still the native probe path, not the final C-only runtime filter.
+At the current rollout stage this is still not the final C-only fuzzy runtime filter. The history exact-substring path is native, while broader fuzzy behavior still remains in Lua.
 
 Optional native stub build:
 

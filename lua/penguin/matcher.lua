@@ -3,6 +3,7 @@ local native = require("penguin.native")
 -- Temporary Step C wiring: this probes the native boundary during scoring,
 -- but Lua still computes and returns the real matcher result.
 local native_probe_enabled = false
+local native_exact_enabled = false
 
 local function normalize(text)
   return (text or ""):lower()
@@ -183,6 +184,11 @@ function M.configure(config)
     and config.native.dev_probe
     and native.available
     or false
+  native_exact_enabled = config
+    and config.native
+    and config.native.runtime_exact
+    and native.available
+    or false
 end
 
 function M.compare_results(left, right)
@@ -269,6 +275,10 @@ function M.score(query, text)
 end
 
 function M.backend_name()
+  if native_exact_enabled then
+    return "native-exact"
+  end
+
   if native_probe_enabled then
     return "lua+native-probe"
   end
@@ -276,7 +286,7 @@ function M.backend_name()
   return "lua"
 end
 
-function M.filter(items, query, limit)
+function M.filter(items, query, limit, opts)
   if vim.trim(query or "") == "" then
     local results = {}
     local max_items = math.min(limit or #items, #items)
@@ -289,6 +299,10 @@ function M.filter(items, query, limit)
     end
 
     return results
+  end
+
+  if native_exact_enabled and opts and opts.native_matcher then
+    return native.find_exact(opts.native_matcher, items, query, limit)
   end
 
   local results = {}

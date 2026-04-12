@@ -5,6 +5,9 @@ M.defaults = {
     -- Temporary development-only switch for Step C of the native rollout.
     -- This only touches the native boundary and still keeps Lua scoring active.
     dev_probe = false,
+    -- Temporary runtime slice: route history exact-substring filtering through
+    -- the native matcher while broader fuzzy behavior is still landing.
+    runtime_exact = false,
   },
   ui = {
     border = "rounded",
