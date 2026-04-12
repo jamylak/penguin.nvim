@@ -71,6 +71,16 @@ make run
 
 That launches a clean Neovim using [scripts/minimal_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_init.lua), loads `penguin.nvim` from this repo, and seeds a few history entries so `:Penguin` is immediately useful.
 
+Manual native dev session with the temporary probe enabled:
+
+```sh
+make run-native
+```
+
+That launches Neovim using [scripts/minimal_native_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_native_init.lua), builds the native module first, and keeps the current native bring-up path active for manual testing.
+
+At the current rollout stage this is still the native probe path, not the final C-only runtime filter.
+
 Optional native stub build:
 
 ```sh
@@ -94,3 +104,13 @@ make check
 ```
 
 That runs [scripts/headless_check.lua](/Users/james/proj/penguin.nvim/scripts/headless_check.lua), which verifies basic loading, matcher examples, and picker session startup.
+
+Headless benchmark run:
+
+```sh
+make bench
+```
+
+That runs [scripts/headless_bench.lua](/Users/james/proj/penguin.nvim/scripts/headless_bench.lua), which compares the current Lua exact-scan baseline and native exact-scan baseline across multiple dataset sizes and query scenarios.
+
+The benchmark output includes both raw timings and a simple ASCII bar chart per scenario.
