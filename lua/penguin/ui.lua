@@ -1,6 +1,7 @@
 local M = {}
 
 local namespace = vim.api.nvim_create_namespace("penguin.nvim")
+local prompt_prefix = ": "
 
 local function set_window_options(window)
   local options = {
@@ -87,8 +88,8 @@ function M.open(session)
   set_buffer_options(prompt_buf, true)
   set_buffer_options(results_buf, false)
 
-  vim.fn.prompt_setprompt(prompt_buf, ": ")
-  vim.api.nvim_buf_set_lines(prompt_buf, 0, -1, false, { "" })
+  vim.fn.prompt_setprompt(prompt_buf, prompt_prefix)
+  vim.api.nvim_buf_set_lines(prompt_buf, 0, -1, false, { prompt_prefix })
 
   session.prompt_win = vim.api.nvim_open_win(prompt_buf, true, {
     border = session.config.ui.border,
@@ -127,6 +128,11 @@ function M.open(session)
       end
 
       local line = vim.api.nvim_buf_get_lines(prompt_buf, 0, 1, false)[1] or ""
+
+      if line:sub(1, #prompt_prefix) == prompt_prefix then
+        line = line:sub(#prompt_prefix + 1)
+      end
+
       session:set_query(line)
     end,
   })
@@ -201,7 +207,7 @@ function M.set_prompt_text(session, text)
     return
   end
 
-  vim.api.nvim_buf_set_lines(session.prompt_buf, 0, -1, false, { text or "" })
+  vim.api.nvim_buf_set_lines(session.prompt_buf, 0, -1, false, { prompt_prefix .. (text or "") })
 end
 
 function M.focus_prompt(session)
@@ -210,7 +216,7 @@ function M.focus_prompt(session)
   end
 
   vim.api.nvim_set_current_win(session.prompt_win)
-  vim.api.nvim_win_set_cursor(session.prompt_win, { 1, #session.query })
+  vim.api.nvim_win_set_cursor(session.prompt_win, { 1, #prompt_prefix + #session.query })
   vim.cmd("startinsert")
 end
 

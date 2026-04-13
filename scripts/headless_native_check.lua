@@ -98,7 +98,21 @@ session:set_query("let g:penguin_selected = 7")
 assert(session.matches[1].item.text == "let g:penguin_selected = 7")
 session:delete_word_backward()
 assert(session.query == "let g:penguin_selected =")
-assert(vim.api.nvim_buf_get_lines(session.prompt_buf, 0, 1, false)[1] == "let g:penguin_selected =")
+assert(vim.api.nvim_buf_get_lines(session.prompt_buf, 0, 1, false)[1] == ": let g:penguin_selected =")
+assert(#session.matches >= 1)
+
+vim.api.nvim_buf_set_lines(session.prompt_buf, 0, -1, false, { ": write" })
+vim.api.nvim_exec_autocmds("TextChangedI", {
+  buffer = session.prompt_buf,
+})
+assert(session.query == "write")
+assert(session.matches[1].item.text == "write")
+
+vim.api.nvim_buf_set_lines(session.prompt_buf, 0, -1, false, { ": " })
+vim.api.nvim_exec_autocmds("TextChangedI", {
+  buffer = session.prompt_buf,
+})
+assert(session.query == "")
 assert(#session.matches >= 1)
 
 local saw_native_history_match = false
