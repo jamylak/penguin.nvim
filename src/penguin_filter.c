@@ -89,6 +89,45 @@ static int penguin_subsequence_score(const char *needle,
                                      const char *haystack,
                                      int haystack_length);
 
+static int penguin_find_worst_result_index(const penguin_result *results,
+                                           int count) {
+  int worst_index = 0;
+  int index;
+
+  for (index = 1; index < count; index++) {
+    if (results[index].score < results[worst_index].score) {
+      worst_index = index;
+    }
+  }
+
+  return worst_index;
+}
+
+/* This score sort only runs on the kept top-k result set after selection, not
+ * on every match. For the small UI-sized k we expect here, a simple insertion
+ * sort keeps the code small and should stay cheap in practice. Benchmark it
+ * against tighter kept-set ordering only if this final top-k sort shows up.
+ */
+static void penguin_sort_results_by_score(penguin_result *results, int count) {
+  int left;
+
+  if (!results || count <= 1) {
+    return;
+  }
+
+  for (left = 1; left < count; left++) {
+    penguin_result current = results[left];
+    int index = left;
+
+    while (index > 0 && current.score > results[index - 1].score) {
+      results[index] = results[index - 1];
+      index--;
+    }
+
+    results[index] = current;
+  }
+}
+
 /* Materialize the full raw query into compact lowered tokens stored back-to-
  * back in `compact_query->token_buffer`, with per-token offset/length metadata
  * written into the compact query object. This is the first directly useful
@@ -229,7 +268,8 @@ static int penguin_score_compact_query_tokens(
 static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
     penguin_exact_matcher *matcher,
     const char *query,
-    int query_length) {
+    int query_length,
+    int result_limit) {
   /* Parse phase:
    *   raw query -> compact token storage once
    *   "  spl  bot " -> token_buffer="splbot", offsets=[0,3], lengths=[3,3]
@@ -251,11 +291,17 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
    *   candidate[2] -> score?
    */
   int count = 0;
+  int worst_index = -1;
+  int kept_limit;
   int index;
 
   if (!matcher || !query || query_length <= 0) {
     return 0;
   }
+
+  kept_limit = result_limit > 0 && result_limit < matcher->result_capacity
+      ? result_limit
+      : matcher->result_capacity;
 
   penguin_collect_compact_query_tokens(query, query_length, &compact_query);
 
@@ -275,15 +321,32 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
         &compact_query, candidate, matcher->compact_text_lengths[index]);
 
     if (score >= 0) {
-      /* Match collection:
-       *   results[count] = { candidate index, score }
+      /* Top-k collection:
+       *   keep only the strongest `kept_limit` scores during the scan
+       *   instead of collecting and sorting every match afterward.
        */
-      matcher->results[count].index = index;
-      matcher->results[count].score = score;
-      count++;
+      if (count < kept_limit) {
+        /* Buffer still has room, so append this match directly. */
+        matcher->results[count].index = index;
+        matcher->results[count].score = score;
+        count++;
+
+        if (count == kept_limit) {
+          /* Buffer just became full; find the current weakest kept result. */
+          worst_index = penguin_find_worst_result_index(matcher->results, count);
+        }
+      } else if (score > matcher->results[worst_index].score) {
+        /* Buffer is full and this score beats the current worst kept result,
+         * so overwrite that weakest slot and then find the new worst kept one.
+         */
+        matcher->results[worst_index].index = index;
+        matcher->results[worst_index].score = score;
+        worst_index = penguin_find_worst_result_index(matcher->results, count);
+      }
     }
   }
 
+  penguin_sort_results_by_score(matcher->results, count);
   /* Publish phase:
    *   query_result -> reusable matcher->results buffer
    *   Lua later reads [index, score] pairs from that stable view
@@ -570,7 +633,8 @@ const penguin_query_result *penguin_exact_matcher_find_exact(
 const penguin_query_result *penguin_exact_matcher_find_fuzzy(
     penguin_exact_matcher *matcher,
     const char *query,
-    int query_length) {
+    int query_length,
+    int result_limit) {
   if (!matcher || !query || query_length <= 0) {
     return 0;
   }
@@ -578,7 +642,8 @@ const penguin_query_result *penguin_exact_matcher_find_fuzzy(
   /* Converge the public fuzzy entrypoint onto the internal full-query native
    * baseline so later optimization work can focus on one C query path instead
    * of keeping a separate single-token-only scan alive. */
-  return penguin_exact_matcher_find_fuzzy_query(matcher, query, query_length);
+  return penguin_exact_matcher_find_fuzzy_query(
+      matcher, query, query_length, result_limit);
 }
 
 const char *penguin_exact_matcher_lower_text_at(
