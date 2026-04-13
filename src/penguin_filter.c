@@ -29,6 +29,28 @@ typedef struct penguin_exact_matcher_text {
   int length;
 } penguin_exact_matcher_text;
 
+/* Parsed raw query in the compact native form used by the future full-query
+ * matcher path.
+ *
+ * Visual shape:
+ *   raw query      = "  spl  bot "
+ *   token_buffer   = "splbot"
+ *   token_offsets  = [0, 3]
+ *   token_lengths  = [3, 3]
+ *   token_count    = 2
+ *
+ * This lets query parsing happen once up front, then later scorer code can
+ * walk token i by reading:
+ *   token_buffer + token_offsets[i], length token_lengths[i]
+ */
+typedef struct penguin_compact_query {
+  int *token_offsets;
+  int *token_lengths;
+  char *token_buffer;
+  int token_capacity;
+  int token_count;
+} penguin_compact_query;
+
 typedef struct penguin_exact_matcher {
   int text_count;
   int result_capacity;
@@ -68,8 +90,9 @@ static int penguin_subsequence_score(const char *needle,
                                      int haystack_length);
 
 /* Materialize the full raw query into compact lowered tokens stored back-to-
- * back in token_buffer, with per-token offset/length metadata written into the
- * caller arrays. This is the first directly useful building block for the
+ * back in `compact_query->token_buffer`, with per-token offset/length metadata
+ * written into the compact query object. This is the first directly useful
+ * building block for the
  * eventual native full-query path: parse once, then let later matcher code
  * score against those compact tokens without bouncing back through Lua.
  *
@@ -83,22 +106,23 @@ static int penguin_subsequence_score(const char *needle,
  * This may be folded back into the final hot path later if the fastest
  * version wants query parsing inlined directly into the matcher scan.
  */
-static int penguin_collect_compact_query_tokens(const char *query,
-                                                int query_length,
-                                                int *token_offsets,
-                                                int *token_lengths,
-                                                int token_capacity,
-                                                char *token_buffer) {
+static int penguin_collect_compact_query_tokens(
+    const char *query,
+    int query_length,
+    penguin_compact_query *compact_query) {
   int cursor = 0;
-  int token_count = 0;
   int token_bytes = 0;
 
-  if (!query || query_length <= 0 || !token_offsets || !token_lengths ||
-      token_capacity <= 0 || !token_buffer) {
+  if (!query || query_length <= 0 || !compact_query ||
+      !compact_query->token_offsets || !compact_query->token_lengths ||
+      compact_query->token_capacity <= 0 || !compact_query->token_buffer) {
     return 0;
   }
 
-  while (cursor < query_length && token_count < token_capacity) {
+  compact_query->token_count = 0;
+
+  while (cursor < query_length &&
+         compact_query->token_count < compact_query->token_capacity) {
     int token_start;
 
     /* Skip separators before the next token starts. */
@@ -116,18 +140,19 @@ static int penguin_collect_compact_query_tokens(const char *query,
     /* Copy the next token into the packed compact lowered buffer. */
     while (cursor < query_length &&
            penguin_ascii_word_byte((unsigned char)query[cursor])) {
-      token_buffer[token_bytes] =
+      compact_query->token_buffer[token_bytes] =
           (char)penguin_ascii_lower_byte((unsigned char)query[cursor]);
       token_bytes++;
       cursor++;
     }
 
-    token_offsets[token_count] = token_start;
-    token_lengths[token_count] = token_bytes - token_start;
-    token_count++;
+    compact_query->token_offsets[compact_query->token_count] = token_start;
+    compact_query->token_lengths[compact_query->token_count] =
+        token_bytes - token_start;
+    compact_query->token_count++;
   }
 
-  return token_count;
+  return compact_query->token_count;
 }
 
 /* Score one candidate against a packed compact-token query. This keeps the
@@ -151,23 +176,23 @@ static int penguin_collect_compact_query_tokens(const char *query,
  * candidate scan that advances all token state together.
  */
 static int penguin_score_compact_query_tokens(
-    const char *token_buffer,
-    const int *token_offsets,
-    const int *token_lengths,
-    int token_count,
+    const penguin_compact_query *compact_query,
     const char *candidate,
     int candidate_length) {
   int total_score = 0;
   int token_index;
 
-  if (!token_buffer || !token_offsets || !token_lengths || token_count <= 0 ||
-      !candidate || candidate_length <= 0) {
+  if (!compact_query || !compact_query->token_offsets ||
+      !compact_query->token_lengths || !compact_query->token_buffer ||
+      compact_query->token_count <= 0 || !candidate || candidate_length <= 0) {
     return -1;
   }
 
-  for (token_index = 0; token_index < token_count; token_index++) {
+  for (token_index = 0; token_index < compact_query->token_count;
+       token_index++) {
     int score = penguin_subsequence_score(
-        token_buffer + token_offsets[token_index], token_lengths[token_index],
+        compact_query->token_buffer + compact_query->token_offsets[token_index],
+        compact_query->token_lengths[token_index],
         candidate, candidate_length);
 
     if (score < 0) {
@@ -177,8 +202,8 @@ static int penguin_score_compact_query_tokens(
     total_score += score;
   }
 
-  if (token_count > 1) {
-    total_score += token_count * 12;
+  if (compact_query->token_count > 1) {
+    total_score += compact_query->token_count * 12;
   }
 
   return total_score;
@@ -212,7 +237,13 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
   int token_offsets[query_length > 0 ? query_length : 1];
   int token_lengths[query_length > 0 ? query_length : 1];
   char token_buffer[query_length > 0 ? query_length : 1];
-  int token_count;
+  penguin_compact_query compact_query = {
+    .token_offsets = token_offsets,
+    .token_lengths = token_lengths,
+    .token_buffer = token_buffer,
+    .token_capacity = query_length > 0 ? query_length : 1,
+    .token_count = 0,
+  };
   /* Scan phase:
    *   parsed query shape is reused for every candidate
    *   candidate[0] -> score?
@@ -226,11 +257,9 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
     return 0;
   }
 
-  token_count = penguin_collect_compact_query_tokens(
-      query, query_length, token_offsets, token_lengths, query_length,
-      token_buffer);
+  penguin_collect_compact_query_tokens(query, query_length, &compact_query);
 
-  if (token_count <= 0) {
+  if (compact_query.token_count <= 0) {
     /* Empty parsed query:
      *   no compact tokens -> no fuzzy matches collected
      */
@@ -243,8 +272,7 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
     const char *candidate =
         matcher->compact_corpus_text + matcher->compact_text_offsets[index];
     int score = penguin_score_compact_query_tokens(
-        token_buffer, token_offsets, token_lengths, token_count, candidate,
-        matcher->compact_text_lengths[index]);
+        &compact_query, candidate, matcher->compact_text_lengths[index]);
 
     if (score >= 0) {
       /* Match collection:
