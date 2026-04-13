@@ -28,7 +28,7 @@ typedef struct {
 penguin_exact_matcher *penguin_exact_matcher_new(const penguin_exact_matcher_text *texts, int text_count, int text_bytes);
 int penguin_exact_matcher_result_capacity(const penguin_exact_matcher *matcher);
 const penguin_query_result *penguin_exact_matcher_find_exact(penguin_exact_matcher *matcher, const char *query, int query_length);
-const penguin_query_result *penguin_exact_matcher_find_fuzzy(penguin_exact_matcher *matcher, const char *query, int query_length);
+const penguin_query_result *penguin_exact_matcher_find_fuzzy(penguin_exact_matcher *matcher, const char *query, int query_length, int result_limit);
 const char *penguin_exact_matcher_lower_text_at(const penguin_exact_matcher *matcher, int index);
 int penguin_exact_matcher_text_length_at(const penguin_exact_matcher *matcher, int index);
 void penguin_exact_matcher_free(penguin_exact_matcher *matcher);
@@ -119,7 +119,8 @@ function M.find_fuzzy(matcher, items, query, limit)
   query_result = lib.penguin_exact_matcher_find_fuzzy(
     matcher.handle,
     raw_query,
-    #raw_query
+    #raw_query,
+    limit or 0
   )
 
   if query_result == nil then
