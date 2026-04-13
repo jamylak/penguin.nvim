@@ -215,6 +215,8 @@ Still-missing speed-critical pieces for the final native path:
 - consider a build-time index only if benchmarks show it beats a tight full scan
   for real command-history workloads
 - compact result records returned to Lua only
+- benchmark whether query-shaped completion should rebuild every refresh or use
+  a cheap cache key, and reject any cache path that loses to a simple rebuild
 - benchmark and assembly validation of the final hot path
 
 ## 🧠 Fuzzy Matching Direction
