@@ -543,38 +543,14 @@ const penguin_query_result *penguin_exact_matcher_find_fuzzy(
     penguin_exact_matcher *matcher,
     const char *query,
     int query_length) {
-  int count = 0;
-  int index;
-
   if (!matcher || !query || query_length <= 0) {
     return 0;
   }
 
-  /* Temporary native fuzzy slice: the query arrives already compacted on the
-   * Lua side, so this bulk scan runs against the matcher's compact corpus text
-   * only. Multi-token query handling and broader query preprocessing still
-   * live outside this function for now. */
-  for (index = 0; index < matcher->text_count; index++) {
-    const char *candidate =
-        matcher->compact_corpus_text + matcher->compact_text_offsets[index];
-    int score = penguin_subsequence_score(
-        query, query_length, candidate, matcher->compact_text_lengths[index]);
-
-    if (score >= 0) {
-      /* Reuse the matcher's long-lived result buffer so the hot query path does
-       * not allocate while collecting matching candidate indexes and scores. */
-      matcher->results[count].index = index;
-      matcher->results[count].score = score;
-      count++;
-    }
-  }
-
-  /* Publish the reused result buffer through the stable query_result view that
-   * Lua already knows how to read. */
-  matcher->query_result.count = count;
-  matcher->query_result.results = matcher->results;
-
-  return &matcher->query_result;
+  /* Converge the public fuzzy entrypoint onto the internal full-query native
+   * baseline so later optimization work can focus on one C query path instead
+   * of keeping a separate single-token-only scan alive. */
+  return penguin_exact_matcher_find_fuzzy_query(matcher, query, query_length);
 }
 
 const char *penguin_exact_matcher_lower_text_at(
