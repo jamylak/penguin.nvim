@@ -57,6 +57,11 @@ assert(fuzzy_result ~= nil)
 assert(fuzzy_result.count == 1)
 assert(fuzzy_result.results[0].index == 0)
 assert(fuzzy_result.results[0].score == 276)
+fuzzy_result = native.library.penguin_exact_matcher_find_fuzzy(exact.handle, "c-kh", #"c-kh")
+assert(fuzzy_result ~= nil)
+assert(fuzzy_result.count == 1)
+assert(fuzzy_result.results[0].index == 0)
+assert(fuzzy_result.results[0].score == 611)
 
 require("penguin").setup({
   native = {
@@ -64,12 +69,14 @@ require("penguin").setup({
   },
 })
 
-assert(matcher.backend_name() == "native-fuzzy-single")
+assert(matcher.backend_name() == "native-fuzzy-query")
 assert(matcher.score("ckh", "checkhealth"))
+assert(matcher.score("spl bot", "vertical botright split"))
 assert(matcher.score("splbot", "vertical botright split"))
 assert(not matcher.score("zz", "write"))
 
 vim.fn.histadd(":", "checkhealth")
+vim.fn.histadd(":", "vertical botright split")
 vim.fn.histadd(":", "write")
 
 require("penguin").open()
@@ -84,12 +91,14 @@ session:set_query("check")
 assert(#session.matches >= 1)
 session:set_query("ckh")
 assert(#session.matches >= 1)
+session:set_query("spl bot")
+assert(#session.matches >= 1)
 
 local saw_native_history_match = false
 local saw_completion_match = false
 
 for _, match in ipairs(session.matches) do
-  if match.item.text == "checkhealth" and match.item.source == "history" then
+  if match.item.text == "vertical botright split" and match.item.source == "history" then
     saw_native_history_match = true
     break
   end

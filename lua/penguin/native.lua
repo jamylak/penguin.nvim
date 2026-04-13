@@ -105,23 +105,21 @@ function M.find_exact(matcher, items, query, limit)
 end
 
 function M.find_fuzzy(matcher, items, query, limit)
-  -- Temporary boundary normalization: the current native fuzzy entrypoint
-  -- matches against the matcher's compact corpus text, so Lua still lowercases
-  -- and strips separators before handing one query token to C. Remove this
-  -- once full query preprocessing/token handling moves into native code.
-  local normalized_query = (query or ""):lower():gsub("[^%w]+", "")
   local query_result
   local result_count
   local results = {}
+  local raw_query = query or ""
 
-  if not matcher or matcher.handle == nil or normalized_query == "" then
+  -- Native fuzzy now owns raw-query preprocessing internally, so Lua can pass
+  -- the full query through unchanged.
+  if not matcher or matcher.handle == nil or raw_query == "" then
     return results
   end
 
   query_result = lib.penguin_exact_matcher_find_fuzzy(
     matcher.handle,
-    normalized_query,
-    #normalized_query
+    raw_query,
+    #raw_query
   )
 
   if query_result == nil then

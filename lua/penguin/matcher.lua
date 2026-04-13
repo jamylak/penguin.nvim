@@ -276,7 +276,7 @@ end
 
 function M.backend_name()
   if native_fuzzy_single_enabled then
-    return "native-fuzzy-single"
+    return "native-fuzzy-query"
   end
 
   if native_probe_enabled then
@@ -304,29 +304,14 @@ function M.filter(items, query, limit, opts)
   end
 
   -- Temporary native rollout shape:
-  -- query normalization still happens in Lua, then exactly one compact fuzzy
-  -- token is handed to C. Multi-token and segmented fuzzy behavior remains in
-  -- Lua for now so existing matching semantics do not silently change while
-  -- the native matcher is still incomplete. Remove this split path once the
-  -- full query-time matcher runs in C.
+  -- raw query preprocessing now happens in C, so Lua can hand the full query
+  -- to the native fuzzy path directly. Segmented single-token behavior still
+  -- only exists in the Lua scorer, so this native path should be treated as
+  -- the current baseline rather than assumed final parity.
   local normalized_query = normalize(query)
-  local single_token = nil
-  local token_count = 0
 
-  for token in normalized_query:gmatch("%S+") do
-    local normalized_token = compact(token)
-
-    if normalized_token ~= "" then
-      token_count = token_count + 1
-
-      if token_count == 1 then
-        single_token = normalized_token
-      end
-    end
-  end
-
-  if native_fuzzy_single_enabled and opts and opts.native_matcher and token_count == 1 then
-    return M.sort_results(native.find_fuzzy(opts.native_matcher, items, single_token, limit), limit)
+  if native_fuzzy_single_enabled and opts and opts.native_matcher then
+    return M.sort_results(native.find_fuzzy(opts.native_matcher, items, query, limit), limit)
   end
 
   local results = {}
