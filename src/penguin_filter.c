@@ -62,6 +62,56 @@ static int penguin_ascii_word_byte(unsigned char byte) {
          (byte >= 'a' && byte <= 'z') || byte == '_';
 }
 
+/* Future full-query native path needs to walk one raw query string and pull
+ * out compact lowered tokens without bouncing back through Lua. The caller
+ * owns one cursor integer for that query; each call starts reading at
+ * *cursor, skips separators, copies the next [%w_]-only token into buffer,
+ * then updates *cursor so the next call resumes from the following byte.
+ * Return value is the compact token length, or 0 when no token remains.
+ *
+ * Example:
+ *   query  = "  spl  bot "
+ *   cursor = 0  -> token "spl", cursor ends at the first space after "spl"
+ *   cursor = 5  -> token "bot", cursor ends at the trailing space
+ *   cursor = 10 -> no token remains, return 0
+ *
+ * This helper is rollout scaffolding for the future full-query native path.
+ * If the final hot path benchmarks better with the token walk inlined into the
+ * main scan, fold this logic back into that code later.
+ */
+static int penguin_next_compact_query_token(const char *query,
+                                            int query_length,
+                                            int *cursor,
+                                            char *buffer) {
+  int compact_length = 0;
+  int index;
+
+  if (!query || query_length <= 0 || !cursor || !buffer) {
+    return 0;
+  }
+
+  index = *cursor;
+
+  /* Skip separators before the next token starts. */
+  while (index < query_length &&
+         !penguin_ascii_word_byte((unsigned char)query[index])) {
+    index++;
+  }
+
+  /* Copy the next token into the compact lowered buffer. */
+  while (index < query_length &&
+         penguin_ascii_word_byte((unsigned char)query[index])) {
+    buffer[compact_length] =
+        (char)penguin_ascii_lower_byte((unsigned char)query[index]);
+    compact_length++;
+    index++;
+  }
+
+  *cursor = index;
+
+  return compact_length;
+}
+
 /* Baseline exact-substring search. Correct and easy to review, but not the
  * final optimized implementation for the raw-speed target. */
 static int penguin_exact_substring_score(const char *needle,
