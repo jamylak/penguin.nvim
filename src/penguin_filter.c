@@ -62,6 +62,11 @@ static int penguin_ascii_word_byte(unsigned char byte) {
          (byte >= 'a' && byte <= 'z') || byte == '_';
 }
 
+static int penguin_subsequence_score(const char *needle,
+                                     int needle_length,
+                                     const char *haystack,
+                                     int haystack_length);
+
 /* Future full-query native path needs to walk one raw query string and pull
  * out compact lowered tokens without bouncing back through Lua. The caller
  * owns one cursor integer for that query; each call starts reading at
@@ -156,6 +161,60 @@ static int penguin_collect_compact_query_tokens(const char *query,
   }
 
   return token_count;
+}
+
+/* Score one candidate against a packed compact-token query. This keeps the
+ * current matcher contract for multi-token queries: every token must match,
+ * token scores sum, and a multi-token bonus is applied when more than one
+ * token is present. Query parsing and candidate scoring stay separate here so
+ * each piece can land in reviewable native slices before the final hot path is
+ * fused together.
+ *
+ * Example:
+ *   token_buffer  = "splbot"
+ *   token_offsets = [0, 3]
+ *   token_lengths = [3, 3]
+ *   candidate     = "verticalbotrightsplit"
+ *
+ * This scores "spl" against the candidate, then "bot" against the same
+ * candidate, sums those scores, and finally applies the multi-token bonus.
+ *
+ * This may not be the final fastest shape. If benchmarks show that rescanning
+ * one candidate per token loses too much, replace this with a tighter one-pass
+ * candidate scan that advances all token state together.
+ */
+static int penguin_score_compact_query_tokens(
+    const char *token_buffer,
+    const int *token_offsets,
+    const int *token_lengths,
+    int token_count,
+    const char *candidate,
+    int candidate_length) {
+  int total_score = 0;
+  int token_index;
+
+  if (!token_buffer || !token_offsets || !token_lengths || token_count <= 0 ||
+      !candidate || candidate_length <= 0) {
+    return -1;
+  }
+
+  for (token_index = 0; token_index < token_count; token_index++) {
+    int score = penguin_subsequence_score(
+        token_buffer + token_offsets[token_index], token_lengths[token_index],
+        candidate, candidate_length);
+
+    if (score < 0) {
+      return -1;
+    }
+
+    total_score += score;
+  }
+
+  if (token_count > 1) {
+    total_score += token_count * 12;
+  }
+
+  return total_score;
 }
 
 /* Baseline exact-substring search. Correct and easy to review, but not the
