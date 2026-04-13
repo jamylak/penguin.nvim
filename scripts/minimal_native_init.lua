@@ -10,7 +10,7 @@ vim.cmd.source(vim.fs.joinpath(root, "plugin", "penguin.lua"))
 
 require("penguin").setup({
   native = {
-    runtime_exact = true,
+    enabled = true,
   },
 })
 

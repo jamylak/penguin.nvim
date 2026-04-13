@@ -31,7 +31,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
     end
 
     vim.schedule(function()
-      vim.notify("penguin.nvim dev session ready. Run :Penguin", vim.log.levels.INFO)
+      vim.notify("penguin.nvim native session ready. Run :Penguin", vim.log.levels.INFO)
     end)
   end,
 })

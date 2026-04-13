@@ -4,8 +4,6 @@ Fast command-history picker for Neovim.
 
 ## Status
 
-Pure Lua vertical slice.
-
 Current stage:
 
 - plugin loads
@@ -13,8 +11,9 @@ Current stage:
 - Ex command history is collected from Neovim
 - live Ex command suggestions are merged into non-empty queries
 - empty query shows recent commands first
-- the native single-token fuzzy runtime slice is the default local dev path
-- the Lua matcher path remains available as a comparison baseline only
+- the native matcher is the default and intended runtime path
+- the plugin auto-builds the native library when it is missing
+- the Lua matcher path is benchmark-only and opt-in
 - selected or typed commands can be executed from the picker
 
 ## Installation
@@ -25,6 +24,9 @@ Current stage:
 vim.opt.runtimepath:append("/Users/james/proj/penguin.nvim")
 require("penguin").setup({})
 ```
+
+That setup path uses the native matcher by default. If the native library is
+missing, `penguin.nvim` will try to run `make native` automatically.
 
 ### `lazy.nvim`
 
@@ -79,9 +81,17 @@ Lua baseline dev session:
 make run-lua
 ```
 
-That launches Neovim using [scripts/minimal_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_init.lua) so the older Lua matcher path stays available for comparison while native remains the default.
+That launches Neovim using [scripts/minimal_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_init.lua) and still uses the native matcher by default.
 
-At the current rollout stage this is still not the final C-only fuzzy runtime filter. The single-token compact fuzzy path is native, while multi-token and segmented fuzzy behavior still remains in Lua.
+Benchmark-only Lua baseline:
+
+```lua
+require("penguin").setup({
+  native = {
+    benchmark_only_lua = true,
+  },
+})
+```
 
 Optional native stub build:
 
@@ -103,9 +113,7 @@ Headless Lua baseline check:
 make check-lua
 ```
 
-That runs [scripts/headless_check.lua](/Users/james/proj/penguin.nvim/scripts/headless_check.lua), which keeps the older Lua behavior available as a correctness baseline while native remains the default path.
-
-The Lua path is no longer the default development mode and should not be presented as the normal runtime direction.
+That runs [scripts/headless_check.lua](/Users/james/proj/penguin.nvim/scripts/headless_check.lua) against the default native runtime path.
 
 Headless benchmark run:
 

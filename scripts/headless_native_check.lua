@@ -65,7 +65,7 @@ assert(fuzzy_result.results[0].score == 611)
 
 require("penguin").setup({
   native = {
-    runtime_exact = true,
+    enabled = true,
   },
 })
 

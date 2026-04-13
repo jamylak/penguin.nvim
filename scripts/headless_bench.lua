@@ -136,21 +136,21 @@ local native = require("penguin.native")
 
 assert(native.available)
 
-local function configure_matcher(runtime_exact)
+local function configure_matcher(benchmark_only_lua)
   matcher.configure({
     native = {
-      runtime_exact = runtime_exact,
+      benchmark_only_lua = benchmark_only_lua,
     },
   })
 end
 
-local function run_matcher_filter(entries, queries, iterations, runtime_exact)
-  local native_matcher = runtime_exact and native.new_exact_matcher(entries) or nil
+local function run_matcher_filter(entries, queries, iterations, benchmark_only_lua)
+  local native_matcher = benchmark_only_lua and nil or native.new_exact_matcher(entries)
   local start_ms = hrtime_ms()
   local total_matches = 0
   local total_score = 0
 
-  configure_matcher(runtime_exact)
+  configure_matcher(benchmark_only_lua)
 
   for _ = 1, iterations do
     for _, query in ipairs(queries) do
@@ -237,8 +237,8 @@ for _, scenario in ipairs(scenarios) do
     }, "\n")
   )
 
-  local matcher_lua_result = run_matcher_filter(entries, scenario.queries, scenario.iterations, false)
-  local matcher_native_result = run_matcher_filter(entries, scenario.queries, scenario.iterations, true)
+  local matcher_lua_result = run_matcher_filter(entries, scenario.queries, scenario.iterations, true)
+  local matcher_native_result = run_matcher_filter(entries, scenario.queries, scenario.iterations, false)
   local matcher_lua_per_query_ms = matcher_lua_result.total_ms / query_count
   local matcher_native_per_query_ms = matcher_native_result.total_ms / query_count
   local matcher_max_per_query_ms = math.max(matcher_lua_per_query_ms, matcher_native_per_query_ms)
