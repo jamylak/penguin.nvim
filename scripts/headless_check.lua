@@ -112,4 +112,20 @@ assert(vim.fn.maparg("<C-w>", "i", false, true).lhs == "<C-W>")
 
 require("penguin").close()
 
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+session.entries = {}
+session.native_history_matcher = {
+  handle = nil,
+  text_count = 0,
+}
+session:set_query("l")
+
+assert(#session.matches >= 1)
+assert(session.matches[1].item.source == "completion")
+assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1] ~= "  no command history yet")
+
 vim.cmd("qa!")

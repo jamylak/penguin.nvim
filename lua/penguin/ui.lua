@@ -46,15 +46,15 @@ end
 local function render_results(session)
   local lines = {}
 
-  if #session.entries == 0 then
-    lines = { "  no command history yet" }
-  elseif #session.matches == 0 then
-    lines = { "  no matches" }
-  else
+  if #session.matches > 0 then
     for index, match in ipairs(session.matches) do
       local marker = index == session.selection and ">" or " "
       lines[index] = string.format("%s %s", marker, match.item.text)
     end
+  elseif #session.entries == 0 then
+    lines = { "  no command history yet" }
+  else
+    lines = { "  no matches" }
   end
 
   vim.bo[session.results_buf].modifiable = true
