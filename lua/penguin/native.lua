@@ -1,5 +1,7 @@
 local M = {
   available = false,
+  build_attempted = false,
+  library = nil,
   load_error = nil,
 }
 
@@ -46,22 +48,87 @@ local function library_path()
   return vim.fs.joinpath(repo_root(), "build", ("penguin_filter.%s"):format(ext))
 end
 
-local load_ok, lib = pcall(ffi.load, library_path())
-
-if not load_ok then
-  M.load_error = lib
-  return M
+local function set_loaded(lib)
+  M.available = true
+  M.library = lib
+  M.load_error = nil
 end
 
-M.available = true
-M.library = lib
+local function reset_load_error(err)
+  M.available = false
+  M.library = nil
+  M.load_error = err
+end
+
+local function try_load()
+  local load_ok, lib = pcall(ffi.load, library_path())
+
+  if not load_ok then
+    reset_load_error(lib)
+    return false
+  end
+
+  set_loaded(lib)
+  return true
+end
+
+local function build_native_library()
+  local result
+
+  if M.build_attempted then
+    return M.available
+  end
+
+  M.build_attempted = true
+
+  if vim.fn.executable("make") ~= 1 then
+    reset_load_error("native library missing and `make` is unavailable")
+    return false
+  end
+
+  result = vim.system({ "make", "native" }, {
+    cwd = repo_root(),
+    text = true,
+  }):wait()
+
+  if result.code ~= 0 then
+    local stderr = vim.trim(result.stderr or "")
+    local stdout = vim.trim(result.stdout or "")
+    local message = stderr ~= "" and stderr or stdout
+
+    if message == "" then
+      message = ("`make native` failed with exit code %d"):format(result.code)
+    end
+
+    reset_load_error(message)
+    return false
+  end
+
+  return try_load()
+end
+
+function M.ensure_ready(opts)
+  opts = opts or {}
+
+  if M.available then
+    return true
+  end
+
+  if try_load() then
+    return true
+  end
+
+  if opts.auto_build then
+    return build_native_library()
+  end
+
+  return false
+end
+
+M.ensure_ready()
 
 function M.version()
-  return lib.penguin_stub_version()
-end
-
-function M.probe()
-  return M.version()
+  return M.library.penguin_stub_version()
 end
 
 function M.find_exact(matcher, items, query, limit)
@@ -74,7 +141,7 @@ function M.find_exact(matcher, items, query, limit)
     return results
   end
 
-  query_result = lib.penguin_exact_matcher_find_exact(
+  query_result = M.library.penguin_exact_matcher_find_exact(
     matcher.handle,
     normalized_query,
     #normalized_query
@@ -110,13 +177,11 @@ function M.find_fuzzy(matcher, items, query, limit)
   local results = {}
   local raw_query = query or ""
 
-  -- Native fuzzy now owns raw-query preprocessing internally, so Lua can pass
-  -- the full query through unchanged.
   if not matcher or matcher.handle == nil or raw_query == "" then
     return results
   end
 
-  query_result = lib.penguin_exact_matcher_find_fuzzy(
+  query_result = M.library.penguin_exact_matcher_find_fuzzy(
     matcher.handle,
     raw_query,
     #raw_query,
@@ -147,10 +212,6 @@ function M.find_fuzzy(matcher, items, query, limit)
   return results
 end
 
--- Native corpus-ownership slice.
--- Build one long-lived matcher object from the candidate list, copy the
--- candidate bytes into native-owned storage once, and keep that matcher across
--- queries until Lua drops the handle.
 function M.new_exact_matcher(items)
   local text_count = #items
   local text_bytes = 0
@@ -175,15 +236,15 @@ function M.new_exact_matcher(items)
     texts[index - 1].length = length
   end
 
-  handle = lib.penguin_exact_matcher_new(texts, text_count, text_bytes)
+  handle = M.library.penguin_exact_matcher_new(texts, text_count, text_bytes)
 
   if handle == nil then
     error("failed to build native exact matcher")
   end
 
   return {
-    handle = ffi.gc(handle, lib.penguin_exact_matcher_free),
-    result_capacity = lib.penguin_exact_matcher_result_capacity(handle),
+    handle = ffi.gc(handle, M.library.penguin_exact_matcher_free),
+    result_capacity = M.library.penguin_exact_matcher_result_capacity(handle),
     text_count = text_count,
     text_bytes = text_bytes,
   }

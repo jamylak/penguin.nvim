@@ -1,9 +1,6 @@
 local M = {}
 local native = require("penguin.native")
--- Temporary Step C wiring: this probes the native boundary during scoring,
--- but Lua still computes and returns the real matcher result.
-local native_probe_enabled = false
-local native_fuzzy_single_enabled = false
+local lua_benchmark_only_enabled = false
 
 local function normalize(text)
   return (text or ""):lower()
@@ -177,17 +174,9 @@ local function prepare_candidate(text)
 end
 
 function M.configure(config)
-  -- Development-only transition hook. This should disappear once the real
-  -- native scorer is wired into the runtime path.
-  native_probe_enabled = config
+  lua_benchmark_only_enabled = config
     and config.native
-    and config.native.dev_probe
-    and native.available
-    or false
-  native_fuzzy_single_enabled = config
-    and config.native
-    and config.native.runtime_exact
-    and native.available
+    and config.native.benchmark_only_lua
     or false
 end
 
@@ -235,10 +224,6 @@ function M.sort_results(results, limit)
 end
 
 function M.score(query, text)
-  if native_probe_enabled then
-    native.probe()
-  end
-
   local normalized_query = normalize(query)
 
   if vim.trim(normalized_query) == "" then
@@ -275,15 +260,11 @@ function M.score(query, text)
 end
 
 function M.backend_name()
-  if native_fuzzy_single_enabled then
-    return "native-fuzzy-query"
+  if lua_benchmark_only_enabled then
+    return "lua-benchmark-only"
   end
 
-  if native_probe_enabled then
-    return "lua+native-probe"
-  end
-
-  return "lua"
+  return "native-fuzzy-query"
 end
 
 function M.filter(items, query, limit, opts)
@@ -303,14 +284,13 @@ function M.filter(items, query, limit, opts)
     return results
   end
 
-  -- Temporary native rollout shape:
-  -- raw query preprocessing now happens in C, so Lua can hand the full query
-  -- to the native fuzzy path directly. Segmented single-token behavior still
-  -- only exists in the Lua scorer, so this native path should be treated as
-  -- the current baseline rather than assumed final parity.
   local normalized_query = normalize(query)
 
-  if native_fuzzy_single_enabled and opts and opts.native_matcher then
+  if not lua_benchmark_only_enabled then
+    if not (opts and opts.native_matcher) then
+      error("penguin.nvim: native matcher required for runtime filtering")
+    end
+
     return native.find_fuzzy(opts.native_matcher, items, query, limit)
   end
 

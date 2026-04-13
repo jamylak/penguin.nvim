@@ -1,5 +1,6 @@
 local config = require("penguin.config")
 local matcher = require("penguin.matcher")
+local native = require("penguin.native")
 local session = require("penguin.session")
 
 local M = {
@@ -9,6 +10,17 @@ local M = {
 
 function M.setup(opts)
   M.config = config.merge(opts)
+
+  if M.config.native.enabled then
+    local ready = native.ensure_ready({
+      auto_build = M.config.native.auto_build,
+    })
+
+    if not ready and not M.config.native.benchmark_only_lua then
+      error(("penguin.nvim: native runtime unavailable: %s"):format(native.load_error or "unknown error"))
+    end
+  end
+
   matcher.configure(M.config)
 end
 
