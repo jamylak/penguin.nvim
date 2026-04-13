@@ -95,7 +95,9 @@ static int penguin_find_worst_result_index(const penguin_result *results,
   int index;
 
   for (index = 1; index < count; index++) {
-    if (results[index].score < results[worst_index].score) {
+    if (results[index].score < results[worst_index].score ||
+        (results[index].score == results[worst_index].score &&
+         results[index].index > results[worst_index].index)) {
       worst_index = index;
     }
   }
@@ -119,7 +121,10 @@ static void penguin_sort_results_by_score(penguin_result *results, int count) {
     penguin_result current = results[left];
     int index = left;
 
-    while (index > 0 && current.score > results[index - 1].score) {
+    while (index > 0 &&
+           (current.score > results[index - 1].score ||
+            (current.score == results[index - 1].score &&
+             current.index < results[index - 1].index))) {
       results[index] = results[index - 1];
       index--;
     }
@@ -335,7 +340,9 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
           /* Buffer just became full; find the current weakest kept result. */
           worst_index = penguin_find_worst_result_index(matcher->results, count);
         }
-      } else if (score > matcher->results[worst_index].score) {
+      } else if (score > matcher->results[worst_index].score ||
+                 (score == matcher->results[worst_index].score &&
+                  index < matcher->results[worst_index].index)) {
         /* Buffer is full and this score beats the current worst kept result,
          * so overwrite that weakest slot and then find the new worst kept one.
          */

@@ -311,7 +311,7 @@ function M.filter(items, query, limit, opts)
   local normalized_query = normalize(query)
 
   if native_fuzzy_single_enabled and opts and opts.native_matcher then
-    return M.sort_results(native.find_fuzzy(opts.native_matcher, items, query, limit), limit)
+    return native.find_fuzzy(opts.native_matcher, items, query, limit)
   end
 
   local results = {}
