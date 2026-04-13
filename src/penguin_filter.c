@@ -183,6 +183,89 @@ static int penguin_score_compact_query_tokens(
 
   return total_score;
 }
+
+/* First real full-query-shaped native scan: parse one raw query into compact
+ * tokens once, then score every compact candidate against that parsed query.
+ * Keep this internal until the full native query path is ready to replace the
+ * current Lua-side query preprocessing.
+ *
+ * This is the initial baseline shape, not an assumed final optimum. Bench it
+ * once the full native query path is wired, then replace it if a tighter
+ * one-pass candidate scan or other approach is measurably faster.
+ *
+ * Example:
+ *   raw query      = "  spl  bot "
+ *   parsed tokens  = "spl" + "bot"
+ *   candidate scan = candidate[0], candidate[1], candidate[2], ...
+ *
+ * Query parsing happens once up front, then each compact candidate is scored
+ * against that parsed query shape.
+ */
+static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
+    penguin_exact_matcher *matcher,
+    const char *query,
+    int query_length) {
+  /* Parse phase:
+   *   raw query -> compact token storage once
+   *   "  spl  bot " -> token_buffer="splbot", offsets=[0,3], lengths=[3,3]
+   */
+  int token_offsets[query_length > 0 ? query_length : 1];
+  int token_lengths[query_length > 0 ? query_length : 1];
+  char token_buffer[query_length > 0 ? query_length : 1];
+  int token_count;
+  /* Scan phase:
+   *   parsed query shape is reused for every candidate
+   *   candidate[0] -> score?
+   *   candidate[1] -> score?
+   *   candidate[2] -> score?
+   */
+  int count = 0;
+  int index;
+
+  if (!matcher || !query || query_length <= 0) {
+    return 0;
+  }
+
+  token_count = penguin_collect_compact_query_tokens(
+      query, query_length, token_offsets, token_lengths, query_length,
+      token_buffer);
+
+  if (token_count <= 0) {
+    /* Empty parsed query:
+     *   no compact tokens -> no fuzzy matches collected
+     */
+    matcher->query_result.count = 0;
+    matcher->query_result.results = matcher->results;
+    return &matcher->query_result;
+  }
+
+  for (index = 0; index < matcher->text_count; index++) {
+    const char *candidate =
+        matcher->compact_corpus_text + matcher->compact_text_offsets[index];
+    int score = penguin_score_compact_query_tokens(
+        token_buffer, token_offsets, token_lengths, token_count, candidate,
+        matcher->compact_text_lengths[index]);
+
+    if (score >= 0) {
+      /* Match collection:
+       *   results[count] = { candidate index, score }
+       */
+      matcher->results[count].index = index;
+      matcher->results[count].score = score;
+      count++;
+    }
+  }
+
+  /* Publish phase:
+   *   query_result -> reusable matcher->results buffer
+   *   Lua later reads [index, score] pairs from that stable view
+   */
+  matcher->query_result.count = count;
+  matcher->query_result.results = matcher->results;
+
+  return &matcher->query_result;
+}
+
 /* Baseline exact-substring search. Correct and easy to review, but not the
  * final optimized implementation for the raw-speed target. */
 static int penguin_exact_substring_score(const char *needle,
