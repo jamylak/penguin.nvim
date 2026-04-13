@@ -67,56 +67,6 @@ static int penguin_subsequence_score(const char *needle,
                                      const char *haystack,
                                      int haystack_length);
 
-/* Future full-query native path needs to walk one raw query string and pull
- * out compact lowered tokens without bouncing back through Lua. The caller
- * owns one cursor integer for that query; each call starts reading at
- * *cursor, skips separators, copies the next [%w_]-only token into buffer,
- * then updates *cursor so the next call resumes from the following byte.
- * Return value is the compact token length, or 0 when no token remains.
- *
- * Example:
- *   query  = "  spl  bot "
- *   cursor = 0  -> token "spl", cursor ends at the first space after "spl"
- *   cursor = 5  -> token "bot", cursor ends at the trailing space
- *   cursor = 10 -> no token remains, return 0
- *
- * This helper is rollout scaffolding for the future full-query native path.
- * If the final hot path benchmarks better with the token walk inlined into the
- * main scan, fold this logic back into that code later.
- */
-static int penguin_next_compact_query_token(const char *query,
-                                            int query_length,
-                                            int *cursor,
-                                            char *buffer) {
-  int compact_length = 0;
-  int index;
-
-  if (!query || query_length <= 0 || !cursor || !buffer) {
-    return 0;
-  }
-
-  index = *cursor;
-
-  /* Skip separators before the next token starts. */
-  while (index < query_length &&
-         !penguin_ascii_word_byte((unsigned char)query[index])) {
-    index++;
-  }
-
-  /* Copy the next token into the compact lowered buffer. */
-  while (index < query_length &&
-         penguin_ascii_word_byte((unsigned char)query[index])) {
-    buffer[compact_length] =
-        (char)penguin_ascii_lower_byte((unsigned char)query[index]);
-    compact_length++;
-    index++;
-  }
-
-  *cursor = index;
-
-  return compact_length;
-}
-
 /* Materialize the full raw query into compact lowered tokens stored back-to-
  * back in token_buffer, with per-token offset/length metadata written into the
  * caller arrays. This is the first directly useful building block for the
@@ -139,24 +89,41 @@ static int penguin_collect_compact_query_tokens(const char *query,
                                                 int *token_lengths,
                                                 int token_capacity,
                                                 char *token_buffer) {
-  char scratch_buffer[query_length > 0 ? query_length : 1];
   int cursor = 0;
   int token_count = 0;
   int token_bytes = 0;
-  int token_length;
 
   if (!query || query_length <= 0 || !token_offsets || !token_lengths ||
       token_capacity <= 0 || !token_buffer) {
     return 0;
   }
 
-  while (token_count < token_capacity &&
-         (token_length = penguin_next_compact_query_token(
-              query, query_length, &cursor, scratch_buffer)) > 0) {
-    token_offsets[token_count] = token_bytes;
-    token_lengths[token_count] = token_length;
-    memcpy(token_buffer + token_bytes, scratch_buffer, (size_t)token_length);
-    token_bytes += token_length;
+  while (cursor < query_length && token_count < token_capacity) {
+    int token_start;
+
+    /* Skip separators before the next token starts. */
+    while (cursor < query_length &&
+           !penguin_ascii_word_byte((unsigned char)query[cursor])) {
+      cursor++;
+    }
+
+    if (cursor >= query_length) {
+      break;
+    }
+
+    token_start = token_bytes;
+
+    /* Copy the next token into the packed compact lowered buffer. */
+    while (cursor < query_length &&
+           penguin_ascii_word_byte((unsigned char)query[cursor])) {
+      token_buffer[token_bytes] =
+          (char)penguin_ascii_lower_byte((unsigned char)query[cursor]);
+      token_bytes++;
+      cursor++;
+    }
+
+    token_offsets[token_count] = token_start;
+    token_lengths[token_count] = token_bytes - token_start;
     token_count++;
   }
 
@@ -216,7 +183,6 @@ static int penguin_score_compact_query_tokens(
 
   return total_score;
 }
-
 /* Baseline exact-substring search. Correct and easy to review, but not the
  * final optimized implementation for the raw-speed target. */
 static int penguin_exact_substring_score(const char *needle,
