@@ -101,6 +101,18 @@ function Session:refresh()
   ui.render(self)
 end
 
+function Session:apply_query(query)
+  query = query or ""
+
+  if query ~= self.query then
+    self.query = query
+    self.selection = 1
+  end
+
+  ui.set_prompt_text(self, query)
+  self:refresh()
+end
+
 function Session:set_query(query)
   query = query or ""
 
@@ -139,8 +151,7 @@ function Session:complete_selection()
     return
   end
 
-  self:set_query(text)
-  ui.set_prompt_text(self, text)
+  self:apply_query(text)
   ui.focus_prompt(self)
 end
 
@@ -156,8 +167,7 @@ function Session:delete_word_backward()
   end
 
   next_query = next_query:gsub("%s+$", "")
-  self:set_query(next_query)
-  ui.set_prompt_text(self, next_query)
+  self:apply_query(next_query)
   ui.focus_prompt(self)
 end
 

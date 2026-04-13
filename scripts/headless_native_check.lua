@@ -78,6 +78,7 @@ assert(not matcher.score("zz", "write"))
 vim.fn.histadd(":", "checkhealth")
 vim.fn.histadd(":", "vertical botright split")
 vim.fn.histadd(":", "write")
+vim.fn.histadd(":", "let g:penguin_selected = 7")
 
 require("penguin").open()
 
@@ -93,9 +94,17 @@ session:set_query("ckh")
 assert(#session.matches >= 1)
 session:set_query("spl bot")
 assert(#session.matches >= 1)
+session:set_query("let g:penguin_selected = 7")
+assert(session.matches[1].item.text == "let g:penguin_selected = 7")
+session:delete_word_backward()
+assert(session.query == "let g:penguin_selected =")
+assert(vim.api.nvim_buf_get_lines(session.prompt_buf, 0, 1, false)[1] == "let g:penguin_selected =")
+assert(#session.matches >= 1)
 
 local saw_native_history_match = false
 local saw_completion_match = false
+
+session:set_query("spl bot")
 
 for _, match in ipairs(session.matches) do
   if match.item.text == "vertical botright split" and match.item.source == "history" then
