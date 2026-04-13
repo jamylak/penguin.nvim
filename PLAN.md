@@ -116,6 +116,8 @@ Initial interaction model:
 Later interaction:
 
 - guarded empty-buffer `Enter` shortcut
+- prompt-edit keys must update the visible query and result set on the first press,
+  including `Ctrl-w`
 
 ### Suggestion Sources
 
@@ -657,6 +659,12 @@ Visual notes:
 - subtle accent colors
 - minimal chrome
 - no overloaded interface
+- selected row should keep a crisp full-width band, not just a generic `Visual`
+  wash
+- matched character runs should get distinct in-row emphasis so fuzzy hits are
+  obvious at a glance
+- prompt and result panes should share a coherent accent treatment instead of
+  feeling like separate default windows
 
 ## 📌 Current Build Strategy
 
@@ -670,3 +678,6 @@ Build the plugin in this order:
 6. optimize with evidence
 
 - Make the plugin load lazily
+- native is the default runtime path for development and normal use
+- installation should ensure the native binary exists; if it is missing, document
+  and later automate the compile step so first use does not silently fall back

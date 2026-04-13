@@ -114,6 +114,10 @@ Still missing before the final fast path:
 - prefer full deletion of the Lua core matcher after native parity and
   correctness are confirmed
 - keep benchmark and correctness evidence for the transition
+- make native-backed entrypoints the default for local runs and checks while any
+  temporary Lua baseline remains explicitly opt-in only
+- add install/build handling so the native module is compiled automatically, or
+  the user gets a clear guided build step before first runtime use
 
 ## Benchmark Principle
 

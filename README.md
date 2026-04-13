@@ -13,8 +13,8 @@ Current stage:
 - Ex command history is collected from Neovim
 - live Ex command suggestions are merged into non-empty queries
 - empty query shows recent commands first
-- the single-token native fuzzy slice is wired in for runtime testing
-- a temporary native probe path can be enabled for development only
+- the native single-token fuzzy runtime slice is the default local dev path
+- the Lua matcher path remains available as a comparison baseline only
 - selected or typed commands can be executed from the picker
 
 ## Installation
@@ -71,15 +71,15 @@ Manual test session with seeded command history:
 make run
 ```
 
-That launches a clean Neovim using [scripts/minimal_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_init.lua), loads `penguin.nvim` from this repo, and seeds a few history entries so `:Penguin` is immediately useful.
+That builds the native module first and launches Neovim using [scripts/minimal_native_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_native_init.lua). It loads `penguin.nvim` from this repo, enables the current native runtime slice, and seeds a few history entries so `:Penguin` is immediately useful.
 
-Manual native dev session with the temporary probe enabled:
+Lua baseline dev session:
 
 ```sh
-make run-native
+make run-lua
 ```
 
-That launches Neovim using [scripts/minimal_native_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_native_init.lua), builds the native module first, and enables the current native single-token fuzzy runtime slice for manual testing.
+That launches Neovim using [scripts/minimal_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_init.lua) so the older Lua matcher path stays available for comparison while native remains the default.
 
 At the current rollout stage this is still not the final C-only fuzzy runtime filter. The single-token compact fuzzy path is native, while multi-token and segmented fuzzy behavior still remains in Lua.
 
@@ -89,23 +89,23 @@ Optional native stub build:
 make native
 ```
 
-Native loader stub check:
-
-```sh
-make check-native
-```
-
-That verifies the native loader and a temporary dev-only probe path without changing normal picker behavior.
-
-The probe path is transitional scaffolding for native bring-up only. It is not intended as a permanent user-facing runtime mode.
-
-Headless smoke check:
+Headless native check:
 
 ```sh
 make check
 ```
 
-That runs [scripts/headless_check.lua](/Users/james/proj/penguin.nvim/scripts/headless_check.lua), which verifies basic loading, matcher examples, and picker session startup.
+That verifies the native loader and the current native runtime slice.
+
+Headless Lua baseline check:
+
+```sh
+make check-lua
+```
+
+That runs [scripts/headless_check.lua](/Users/james/proj/penguin.nvim/scripts/headless_check.lua), which keeps the older Lua behavior available as a correctness baseline while native remains the default path.
+
+The Lua path is no longer the default development mode and should not be presented as the normal runtime direction.
 
 Headless benchmark run:
 
