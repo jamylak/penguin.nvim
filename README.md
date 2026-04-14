@@ -1,6 +1,8 @@
 # `penguin.nvim`
 
-🚧 Work in progress.
+🚧 Work in progress. Still fixing a lot of stuff...
+
+![screenshot.png](assets/screenshot.png)
 
 `penguin.nvim` is a command-history and command-entry picker for Neovim.
 It is a lua frontend to a C backend.
