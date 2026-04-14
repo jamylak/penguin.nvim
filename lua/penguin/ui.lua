@@ -3,6 +3,12 @@ local M = {}
 local namespace = vim.api.nvim_create_namespace("penguin.nvim")
 local prompt_prefix = ": "
 
+pcall(vim.api.nvim_set_hl, 0, "PenguinAccent", {
+  fg = "#8ecae6",
+  bold = true,
+  nocombine = true,
+})
+
 local function set_window_options(window)
   local options = {
     cursorline = false,
@@ -119,6 +125,10 @@ function M.open(session)
 
   set_window_options(session.prompt_win)
   set_window_options(session.results_win)
+  vim.wo[session.prompt_win].winhighlight =
+    "FloatBorder:PenguinAccent,FloatTitle:PenguinAccent"
+  vim.wo[session.results_win].winhighlight =
+    "FloatBorder:PenguinAccent,FloatTitle:PenguinAccent"
 
   vim.api.nvim_create_autocmd({ "TextChangedI", "TextChanged" }, {
     buffer = prompt_buf,
