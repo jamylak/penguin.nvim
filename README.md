@@ -28,7 +28,7 @@ require("penguin").setup({})
 That setup path uses the native matcher by default. If the native library is
 missing, `penguin.nvim` will try to run `make native` automatically.
 
-Optional normal-mode `Enter` integration:
+Experimental optional normal-mode `Enter` integration:
 
 ```lua
 require("penguin").setup({
@@ -36,8 +36,9 @@ require("penguin").setup({
 })
 ```
 
-That maps bare `Enter` in ordinary file buffers to open `penguin.nvim`, so the
-plugin can own that wiring instead of your main config.
+That is an opt-in experiment, not the default. It maps bare `Enter` in
+ordinary file buffers to open `penguin.nvim`, so the plugin can own that
+wiring instead of your main config.
 
 ### `lazy.nvim`
 
@@ -62,7 +63,8 @@ Run:
 Or press `Alt-Space` in normal mode.
 
 If `open_on_bare_enter = true` is enabled, bare `Enter` in normal mode will
-also open the picker in ordinary file buffers.
+also open the picker in ordinary file buffers. This is intentionally not the
+default behavior.
 
 At this stage the picker opens, filters, navigates, completes, and executes commands from the prompt.
 
