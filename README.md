@@ -1,4 +1,4 @@
-# `penguin.nvim`
+# 🐧 `penguin.nvim`
 
 🚧 Work in progress. Still fixing a lot of stuff...
 
