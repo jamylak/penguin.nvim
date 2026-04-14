@@ -7,214 +7,220 @@ local ui = require("penguin.ui")
 local Session = {}
 Session.__index = Session
 
+local function record_command_history(command)
+	vim.fn.histadd(":", command)
+end
+
 local function execute_command(text)
-  local command = vim.trim(text or "")
+	local command = vim.trim(text or "")
 
-  if command == "" then
-    return false
-  end
+	if command == "" then
+		return false
+	end
 
-  local ok, err = pcall(vim.cmd, command)
+	record_command_history(command)
 
-  if not ok then
-    vim.notify(("penguin.nvim: %s"):format(err), vim.log.levels.ERROR)
-  end
+	local ok, err = pcall(vim.cmd, command)
 
-  return ok
+	if not ok then
+		vim.notify(("penguin.nvim: %s"):format(err), vim.log.levels.ERROR)
+	end
+
+	return ok
 end
 
 local function run_after_close(text)
-  vim.schedule(function()
-    execute_command(text)
-  end)
+	vim.schedule(function()
+		execute_command(text)
+	end)
 end
 
 local function build_native_matcher(entries)
-  if not native.available then
-    return nil
-  end
+	if not native.available then
+		return nil
+	end
 
-  return native.new_exact_matcher(entries)
+	return native.new_exact_matcher(entries)
 end
 
 local function merge_matches(history_matches, completion_matches, limit)
-  local merged = {}
-  local positions = {}
+	local merged = {}
+	local positions = {}
 
-  local function add(result)
-    local key = result.item.text
-    local index = positions[key]
+	local function add(result)
+		local key = result.item.text
+		local index = positions[key]
 
-    if not index then
-      positions[key] = #merged + 1
-      table.insert(merged, result)
-      return
-    end
+		if not index then
+			positions[key] = #merged + 1
+			table.insert(merged, result)
+			return
+		end
 
-    if matcher.compare_results(result, merged[index]) then
-      merged[index] = result
-    end
-  end
+		if matcher.compare_results(result, merged[index]) then
+			merged[index] = result
+		end
+	end
 
-  for _, result in ipairs(history_matches) do
-    add(result)
-  end
+	for _, result in ipairs(history_matches) do
+		add(result)
+	end
 
-  for _, result in ipairs(completion_matches) do
-    add(result)
-  end
+	for _, result in ipairs(completion_matches) do
+		add(result)
+	end
 
-  return matcher.sort_results(merged, limit)
+	return matcher.sort_results(merged, limit)
 end
 
 function Session:new(config)
-  local session = setmetatable({
-    closed = false,
-    config = config,
-    entries = history.collect(),
-    matches = {},
-    query = "",
-    selection = 0,
-  }, self)
+	local session = setmetatable({
+		closed = false,
+		config = config,
+		entries = history.collect(),
+		matches = {},
+		query = "",
+		selection = 0,
+	}, self)
 
-  return session
+	return session
 end
 
 function Session:refresh()
-  local limit = self.config.ui.max_results
-  local completion_items = completion.collect(self.query)
-  local history_matches = matcher.filter(self.entries, self.query, limit, {
-    native_matcher = self.native_history_matcher,
-  })
-  local completion_matches = matcher.filter(completion_items, self.query, limit, {
-    native_matcher = build_native_matcher(completion_items),
-  })
+	local limit = self.config.ui.max_results
+	local completion_items = completion.collect(self.query)
+	local history_matches = matcher.filter(self.entries, self.query, limit, {
+		native_matcher = self.native_history_matcher,
+	})
+	local completion_matches = matcher.filter(completion_items, self.query, limit, {
+		native_matcher = build_native_matcher(completion_items),
+	})
 
-  self.matches = merge_matches(history_matches, completion_matches, limit)
+	self.matches = merge_matches(history_matches, completion_matches, limit)
 
-  if #self.matches == 0 then
-    self.selection = 0
-  else
-    self.selection = math.min(math.max(self.selection, 1), #self.matches)
-  end
+	if #self.matches == 0 then
+		self.selection = 0
+	else
+		self.selection = math.min(math.max(self.selection, 1), #self.matches)
+	end
 
-  ui.render(self)
+	ui.render(self)
 end
 
 function Session:apply_query(query)
-  query = query or ""
+	query = query or ""
 
-  if query ~= self.query then
-    self.query = query
-    self.selection = 1
-  end
+	if query ~= self.query then
+		self.query = query
+		self.selection = 1
+	end
 
-  ui.set_prompt_text(self, query)
-  self:refresh()
+	ui.set_prompt_text(self, query)
+	self:refresh()
 end
 
 function Session:set_query(query)
-  query = query or ""
+	query = query or ""
 
-  if query == self.query then
-    return
-  end
+	if query == self.query then
+		return
+	end
 
-  self.query = query
-  self.selection = 1
-  self:refresh()
+	self.query = query
+	self.selection = 1
+	self:refresh()
 end
 
 function Session:selected_text()
-  local entry = self.matches[self.selection]
+	local entry = self.matches[self.selection]
 
-  if not entry then
-    return nil
-  end
+	if not entry then
+		return nil
+	end
 
-  return entry.item.text
+	return entry.item.text
 end
 
 function Session:move_selection(delta)
-  if #self.matches == 0 then
-    return
-  end
+	if #self.matches == 0 then
+		return
+	end
 
-  self.selection = ((self.selection - 1 + delta) % #self.matches) + 1
-  ui.render(self)
+	self.selection = ((self.selection - 1 + delta) % #self.matches) + 1
+	ui.render(self)
 end
 
 function Session:complete_selection()
-  local text = self:selected_text()
+	local text = self:selected_text()
 
-  if not text then
-    return
-  end
+	if not text then
+		return
+	end
 
-  self:apply_query(text)
-  ui.focus_prompt(self)
+	self:apply_query(text)
+	ui.focus_prompt(self)
 end
 
 function Session:delete_word_backward()
-  local text = self.query or ""
-  local trimmed = text:gsub("%s+$", "")
-  local next_query
+	local text = self.query or ""
+	local trimmed = text:gsub("%s+$", "")
+	local next_query
 
-  if trimmed == "" then
-    next_query = ""
-  else
-    next_query = trimmed:gsub("%S+$", "")
-  end
+	if trimmed == "" then
+		next_query = ""
+	else
+		next_query = trimmed:gsub("%S+$", "")
+	end
 
-  next_query = next_query:gsub("%s+$", "")
-  self:apply_query(next_query)
-  ui.focus_prompt(self)
+	next_query = next_query:gsub("%s+$", "")
+	self:apply_query(next_query)
+	ui.focus_prompt(self)
 end
 
 function Session:submit_query()
-  local text = self.query
+	local text = self.query
 
-  if vim.trim(text or "") == "" then
-    return
-  end
+	if vim.trim(text or "") == "" then
+		return
+	end
 
-  self:close()
-  run_after_close(text)
+	self:close()
+	run_after_close(text)
 end
 
 function Session:confirm()
-  local text = self:selected_text()
+	local text = self:selected_text()
 
-  if not text then
-    return
-  end
+	if not text then
+		return
+	end
 
-  self:close()
-  run_after_close(text)
+	self:close()
+	run_after_close(text)
 end
 
 function Session:close()
-  if self.closed then
-    return
-  end
+	if self.closed then
+		return
+	end
 
-  self.closed = true
-  ui.close(self)
+	self.closed = true
+	ui.close(self)
 
-  if self.on_close then
-    self.on_close()
-  end
+	if self.on_close then
+		self.on_close()
+	end
 end
 
 local M = {}
 
 function M.open(config, on_close)
-  local session = Session:new(config)
-  session.native_history_matcher = build_native_matcher(session.entries)
-  session.on_close = on_close
-  ui.open(session)
-  session:refresh()
-  return session
+	local session = Session:new(config)
+	session.native_history_matcher = build_native_matcher(session.entries)
+	session.on_close = on_close
+	ui.open(session)
+	session:refresh()
+	return session
 end
 
 return M

@@ -50,6 +50,7 @@ vim.wait(1000, function()
   return vim.g.penguin_selected == 7
 end)
 assert(vim.g.penguin_selected == 7)
+assert(vim.fn.histget(":", -1) == "let g:penguin_selected = 7")
 
 require("penguin").open()
 
@@ -63,6 +64,7 @@ vim.wait(1000, function()
   return vim.g.penguin_direct == 13
 end)
 assert(vim.g.penguin_direct == 13)
+assert(vim.fn.histget(":", -1) == "let g:penguin_direct = 13")
 
 require("penguin").open()
 
