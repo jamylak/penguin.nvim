@@ -2,7 +2,8 @@
 
 🚧 Work in progress.
 
-`penguin.nvim` is a fast command-history and command-entry picker for Neovim.
+`penguin.nvim` is a command-history and command-entry picker for Neovim.
+It is a lua frontend to a C backend.
 It was inspired by `telescope-cmdline.nvim`, but the goal here is to make the
 experience much faster and much fuzzier.
 
