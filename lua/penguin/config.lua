@@ -1,6 +1,7 @@
 local M = {}
 
 M.defaults = {
+  open_on_bare_enter = false,
   native = {
     enabled = true,
     auto_build = true,
