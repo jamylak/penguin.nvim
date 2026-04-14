@@ -10,6 +10,7 @@ M.defaults = {
   ui = {
     border = "rounded",
     max_results = 12,
+    match_highlights = true,
     width = 72,
   },
 }

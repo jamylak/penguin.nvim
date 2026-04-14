@@ -13,6 +13,7 @@ require("penguin").setup({})
 assert(vim.fn.maparg("<M-Space>", "n") ~= "")
 
 local matcher = require("penguin.matcher")
+local ui = require("penguin.ui")
 
 assert(matcher.backend_name() == "native-fuzzy-query")
 
@@ -38,6 +39,7 @@ assert(#session.matches >= 3)
 session:set_query("penguin sel")
 
 assert(session.matches[1].item.text == "let g:penguin_selected = 7")
+assert(#vim.api.nvim_buf_get_extmarks(session.results_buf, ui.namespace, 0, -1, {}) > 0)
 
 session:complete_selection()
 
@@ -114,6 +116,22 @@ assert(vim.fn.maparg("<C-w>", "i", false, true).lhs == "<C-W>")
 
 require("penguin").close()
 
+require("penguin").setup({
+  ui = {
+    match_highlights = false,
+  },
+})
+
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+session:set_query("penguin sel")
+assert(#vim.api.nvim_buf_get_extmarks(session.results_buf, ui.namespace, 0, -1, {}) == 1)
+require("penguin").close()
+
+require("penguin").setup({})
 require("penguin").open()
 
 session = require("penguin")._session

@@ -1,10 +1,19 @@
 local M = {}
 
+local highlight = require("penguin.highlight")
 local namespace = vim.api.nvim_create_namespace("penguin.nvim")
 local prompt_prefix = ": "
+M.namespace = namespace
 
 pcall(vim.api.nvim_set_hl, 0, "PenguinAccent", {
   fg = "#8ecae6",
+  bold = true,
+  nocombine = true,
+})
+
+pcall(vim.api.nvim_set_hl, 0, "PenguinMatch", {
+  fg = "#1f2328",
+  bg = "#ffd166",
   bold = true,
   nocombine = true,
 })
@@ -51,11 +60,16 @@ end
 
 local function render_results(session)
   local lines = {}
+  local line_meta = {}
 
   if #session.matches > 0 then
     for index, match in ipairs(session.matches) do
       local marker = index == session.selection and ">" or " "
       lines[index] = string.format("%s %s", marker, match.item.text)
+      line_meta[index] = {
+        text = match.item.text,
+        text_col = 2,
+      }
     end
   elseif #session.entries == 0 then
     lines = { "  no command history yet" }
@@ -68,6 +82,23 @@ local function render_results(session)
   vim.bo[session.results_buf].modifiable = false
 
   vim.api.nvim_buf_clear_namespace(session.results_buf, namespace, 0, -1)
+
+  if session.config.ui.match_highlights and #line_meta > 0 then
+    for index, meta in ipairs(line_meta) do
+      local ranges = highlight.find_match_ranges(meta.text, session.query)
+
+      for _, range in ipairs(ranges) do
+        vim.api.nvim_buf_add_highlight(
+          session.results_buf,
+          namespace,
+          "PenguinMatch",
+          index - 1,
+          meta.text_col + range[1],
+          meta.text_col + range[2]
+        )
+      end
+    end
+  end
 
   if session.selection > 0 then
     vim.api.nvim_buf_add_highlight(
