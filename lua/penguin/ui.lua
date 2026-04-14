@@ -105,7 +105,7 @@ function M.open(session)
     relative = "editor",
     row = size.prompt_row,
     style = "minimal",
-    title = " Penguin ",
+    title = " 🐧 Penguin ",
     title_pos = "center",
     width = size.width,
   })
@@ -118,7 +118,7 @@ function M.open(session)
     relative = "editor",
     row = size.results_row,
     style = "minimal",
-    title = " History ",
+    title = " 🐧 History ",
     title_pos = "center",
     width = size.width,
   })
