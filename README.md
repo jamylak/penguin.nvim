@@ -1,6 +1,22 @@
 # `penguin.nvim`
 
-Fast command-history picker for Neovim.
+🚧 Work in progress.
+
+`penguin.nvim` is a fast command-history and command-entry picker for Neovim.
+It was inspired by `telescope-cmdline.nvim`, but the goal here is to make the
+experience much faster and much fuzzier.
+
+The idea is a spotlight-like interface for Neovim command entry: something
+that makes it much easier to enter commands, rediscover commands, and reuse
+previous commands than the default `:` prompt flow.
+
+It is still a work in progress and still being tested, but the intended UX is:
+
+- spotlight-like command entry for Neovim
+- much faster fuzzy matching on command history and command completions
+- a more ergonomic command workflow than raw `:` usage
+- optional features like bare `Enter` opening the picker so command entry can
+  feel more immediate in normal editing flow
 
 ## Status
 
