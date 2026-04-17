@@ -148,4 +148,32 @@ assert(#session.matches >= 1)
 assert(session.matches[1].item.source == "completion")
 assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1] ~= "  no command history yet")
 
+require("penguin").close()
+
+require("penguin").setup({
+  open_on_bare_enter = true,
+})
+
+local enter_mapped = false
+
+for _, map in ipairs(vim.api.nvim_buf_get_keymap(0, "n")) do
+  if map.lhs == "<CR>" and map.desc == "Open penguin.nvim on bare Enter" then
+    enter_mapped = true
+    break
+  end
+end
+
+assert(enter_mapped)
+assert(require("penguin").handle_bare_enter() == "")
+vim.wait(1000, function()
+  return require("penguin")._session ~= nil
+end)
+assert(require("penguin")._session ~= nil)
+require("penguin").close()
+
+vim.cmd("help help")
+assert(require("penguin").handle_bare_enter() == "<CR>")
+assert(require("penguin")._session == nil)
+vim.cmd("close")
+
 vim.cmd("qa!")

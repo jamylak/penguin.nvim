@@ -59,15 +59,58 @@ That is an opt-in experiment, not the default. It maps bare `Enter` in
 ordinary file buffers to open `penguin.nvim`, so the plugin can own that
 wiring instead of your main config.
 
+When the plugin is loaded eagerly, that is enough on its own. With a lazy
+plugin manager, `setup()` runs too late to bootstrap bare `Enter`, so the lazy
+spec also needs an `Enter` trigger.
+
 ### `lazy.nvim`
 
 ```lua
 {
   dir = "/Users/james/proj/penguin.nvim",
   name = "penguin.nvim",
-  config = function()
-    require("penguin").setup({})
+  cmd = "Penguin",
+  keys = {
+    { "<M-Space>", "<cmd>Penguin<cr>", desc = "Open penguin.nvim", mode = "n" },
+  },
+  opts = {},
+}
+```
+
+If you also want `open_on_bare_enter = true`, add a small bootstrap mapping in
+`init` so lazy.nvim can load the plugin before the first bare `Enter` opens it:
+
+```lua
+{
+  dir = "/Users/james/proj/penguin.nvim",
+  name = "penguin.nvim",
+  cmd = "Penguin",
+  init = function(plugin)
+    vim.keymap.set("n", "<CR>", function()
+      local filetype = vim.bo.filetype
+
+      if vim.fn.getcmdwintype() ~= "" or vim.bo.buftype ~= "" then
+        return "<CR>"
+      end
+
+      if filetype == "help" or filetype == "netrw" or filetype == "qf" then
+        return "<CR>"
+      end
+
+      require("lazy").load({ plugins = { plugin.name } })
+      return require("penguin").handle_bare_enter()
+    end, {
+      desc = "Open penguin.nvim on bare Enter",
+      expr = true,
+      silent = true,
+    })
   end,
+  keys = {
+    { "<M-Space>", "<cmd>Penguin<cr>", desc = "Open penguin.nvim", mode = "n" },
+  },
+  opts = {
+    open_on_bare_enter = true,
+  },
 }
 ```
 
@@ -82,8 +125,9 @@ Run:
 Or press `Alt-Space` in normal mode.
 
 If `open_on_bare_enter = true` is enabled, bare `Enter` in normal mode will
-also open the picker in ordinary file buffers. This is intentionally not the
-default behavior.
+also open the picker in ordinary file buffers. That is intentionally opt-in,
+and lazy setups need the bootstrap mapping above because `setup()` alone cannot
+install the first `Enter` trigger before the plugin loads.
 
 At this stage the picker opens, filters, navigates, completes, and executes commands from the prompt.
 
