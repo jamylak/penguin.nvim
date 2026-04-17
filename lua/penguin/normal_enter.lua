@@ -3,9 +3,19 @@ local M = {}
 local group = vim.api.nvim_create_augroup("penguin.nvim.enter", { clear = true })
 local enabled = false
 local ignore_next_enter = false
+local excluded_filetypes = {
+  help = true,
+  netrw = true,
+  qf = true,
+}
 
 local function open_penguin()
   require("penguin").open()
+end
+
+local function should_map_buffer(buf)
+  local filetype = vim.bo[buf].filetype
+  return vim.bo[buf].buftype == "" and not excluded_filetypes[filetype]
 end
 
 local function unmap_buffer_enter(buf)
@@ -20,8 +30,11 @@ local function unmap_buffer_enter(buf)
   end
 end
 
+local consume_enter_action
+
 local function map_buffer_enter(buf)
-  if vim.bo[buf].buftype ~= "" or vim.bo[buf].filetype == "qf" then
+  if not should_map_buffer(buf) then
+    unmap_buffer_enter(buf)
     return
   end
 
@@ -32,8 +45,14 @@ local function map_buffer_enter(buf)
   vim.b[buf].__penguin_enter_mapped = true
 
   vim.keymap.set("n", "<CR>", function()
-    if ignore_next_enter then
-      ignore_next_enter = false
+    local action = consume_enter_action(buf)
+
+    if action == "ignore" then
+      return
+    end
+
+    if action == "fallback" then
+      vim.api.nvim_feedkeys(vim.keycode("<CR>"), "n", false)
       return
     end
 
@@ -44,6 +63,33 @@ local function map_buffer_enter(buf)
     noremap = true,
     silent = true,
   })
+end
+
+consume_enter_action = function(buf)
+  if ignore_next_enter then
+    ignore_next_enter = false
+    return "ignore"
+  end
+
+  if vim.fn.getcmdwintype() ~= "" or not should_map_buffer(buf) then
+    return "fallback"
+  end
+
+  return "open"
+end
+
+function M.handle_expr()
+  local action = consume_enter_action(vim.api.nvim_get_current_buf())
+
+  if action == "fallback" then
+    return "<CR>"
+  end
+
+  if action == "open" then
+    vim.schedule(open_penguin)
+  end
+
+  return ""
 end
 
 function M.enable()
@@ -78,6 +124,8 @@ function M.enable()
       map_buffer_enter(args.buf)
     end,
   })
+
+  map_buffer_enter(vim.api.nvim_get_current_buf())
 end
 
 return M

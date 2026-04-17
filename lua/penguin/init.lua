@@ -45,4 +45,8 @@ function M.close()
   end
 end
 
+function M.handle_bare_enter()
+  return normal_enter.handle_expr()
+end
+
 return M
