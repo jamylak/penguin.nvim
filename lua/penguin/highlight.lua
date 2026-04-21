@@ -1,10 +1,9 @@
 local M = {}
 
--- Temporary UI-side highlight pass.
--- This keeps match highlighting shippable while the native matcher still only
--- returns score-ranked rows. The intended replacement is a native query path
--- that returns exact match spans alongside scores, so Lua can render extmarks
--- directly from C-owned match metadata instead of re-deriving ranges here.
+-- Lua highlight baseline for benchmarking only.
+-- Normal runtime should render match spans from native result metadata.
+-- Keep this module around only to measure the old UI-side derivation cost
+-- against the native score-plus-span path before removing it entirely.
 
 local function merge_ranges(ranges)
   if #ranges == 0 then

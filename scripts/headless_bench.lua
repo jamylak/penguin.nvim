@@ -131,6 +131,7 @@ local root = repo_root()
 vim.opt.runtimepath:append(root)
 vim.cmd.source(vim.fs.joinpath(root, "plugin", "penguin.lua"))
 
+local highlight_baseline = require("penguin.highlight")
 local matcher = require("penguin.matcher")
 local native = require("penguin.native")
 
@@ -170,6 +171,47 @@ local function run_matcher_filter(entries, queries, iterations, benchmark_only_l
     total_ms = hrtime_ms() - start_ms,
     total_matches = total_matches,
     total_score = total_score,
+  }
+end
+
+local function run_highlight_runtime(entries, queries, iterations, use_lua_baseline)
+  local native_matcher = native.new_exact_matcher(entries)
+  local start_ms = hrtime_ms()
+  local total_matches = 0
+  local total_spans = 0
+  local total_span_bytes = 0
+
+  configure_matcher(false)
+
+  for _ = 1, iterations do
+    for _, query in ipairs(queries) do
+      local results = matcher.filter(entries, query, 12, {
+        native_matcher = native_matcher,
+      })
+
+      total_matches = total_matches + #results
+
+      for _, result in ipairs(results) do
+        local ranges = result.match_ranges or {}
+
+        if use_lua_baseline then
+          ranges = highlight_baseline.find_match_ranges(result.item.text, query)
+        end
+
+        total_spans = total_spans + #ranges
+
+        for _, range in ipairs(ranges) do
+          total_span_bytes = total_span_bytes + (range[2] - range[1])
+        end
+      end
+    end
+  end
+
+  return {
+    total_ms = hrtime_ms() - start_ms,
+    total_matches = total_matches,
+    total_spans = total_spans,
+    total_span_bytes = total_span_bytes,
   }
 end
 
@@ -271,15 +313,75 @@ for _, scenario in ipairs(scenarios) do
     table.concat({
       "chart",
       scenario.name .. "_matcher",
-      ("matcher_lua         |%s| %.6f ms/query"):format(
+      ("matcher_lua_baseline|%s| %.6f ms/query"):format(
         bar(matcher_lua_per_query_ms, matcher_max_per_query_ms, 32),
         matcher_lua_per_query_ms
       ),
-      ("matcher_native_fuzzy_single|%s| %.6f ms/query"):format(
+      ("matcher_native      |%s| %.6f ms/query"):format(
         bar(matcher_native_per_query_ms, matcher_max_per_query_ms, 32),
         matcher_native_per_query_ms
       ),
       ("speedup=%.2fx"):format(matcher_lua_per_query_ms / matcher_native_per_query_ms),
+    }, "\n")
+  )
+
+  local native_highlight_result = run_highlight_runtime(
+    entries,
+    scenario.queries,
+    scenario.iterations,
+    false
+  )
+  local lua_baseline_highlight_result = run_highlight_runtime(
+    entries,
+    scenario.queries,
+    scenario.iterations,
+    true
+  )
+  local native_highlight_per_query_ms = native_highlight_result.total_ms / query_count
+  local lua_baseline_highlight_per_query_ms =
+    lua_baseline_highlight_result.total_ms / query_count
+  local highlight_max_per_query_ms =
+    math.max(native_highlight_per_query_ms, lua_baseline_highlight_per_query_ms)
+
+  print(
+    table.concat({
+      "scenario=" .. scenario.name,
+      "size=" .. scenario.size,
+      "backend=native_highlights_runtime",
+      ("total_ms=%.3f"):format(native_highlight_result.total_ms),
+      ("per_query_ms=%.6f"):format(native_highlight_per_query_ms),
+      "matches=" .. native_highlight_result.total_matches,
+      "spans=" .. native_highlight_result.total_spans,
+      "span_bytes=" .. native_highlight_result.total_span_bytes,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario.name,
+      "size=" .. scenario.size,
+      "backend=lua_highlights_baseline_runtime",
+      ("total_ms=%.3f"):format(lua_baseline_highlight_result.total_ms),
+      ("per_query_ms=%.6f"):format(lua_baseline_highlight_per_query_ms),
+      "matches=" .. lua_baseline_highlight_result.total_matches,
+      "spans=" .. lua_baseline_highlight_result.total_spans,
+      "span_bytes=" .. lua_baseline_highlight_result.total_span_bytes,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "chart",
+      scenario.name .. "_highlights",
+      ("native_highlights     |%s| %.6f ms/query"):format(
+        bar(native_highlight_per_query_ms, highlight_max_per_query_ms, 32),
+        native_highlight_per_query_ms
+      ),
+      ("lua_highlights_baseline|%s| %.6f ms/query"):format(
+        bar(lua_baseline_highlight_per_query_ms, highlight_max_per_query_ms, 32),
+        lua_baseline_highlight_per_query_ms
+      ),
+      ("speedup=%.2fx"):format(lua_baseline_highlight_per_query_ms / native_highlight_per_query_ms),
     }, "\n")
   )
 end

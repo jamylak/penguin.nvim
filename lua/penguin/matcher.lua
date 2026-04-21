@@ -261,7 +261,7 @@ end
 
 function M.backend_name()
   if lua_benchmark_only_enabled then
-    return "lua-benchmark-only"
+    return "lua-baseline-benchmark-only"
   end
 
   return "native-fuzzy-query"

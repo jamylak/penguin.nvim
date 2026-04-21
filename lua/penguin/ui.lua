@@ -1,6 +1,5 @@
 local M = {}
 
-local highlight = require("penguin.highlight")
 local namespace = vim.api.nvim_create_namespace("penguin.nvim")
 local prompt_prefix = ": "
 M.namespace = namespace
@@ -58,19 +57,22 @@ local function set_buffer_options(buffer, prompt)
   vim.bo[buffer].swapfile = false
 end
 
+local function match_ranges_for_render(session, match)
+  if session.config.native and session.config.native.benchmark_only_lua then
+    local highlight_baseline = require("penguin.highlight")
+    return highlight_baseline.find_match_ranges(match.item.text, session.query)
+  end
+
+  return match.match_ranges or {}
+end
+
 local function render_results(session)
   local lines = {}
-  local line_meta = {}
 
   if #session.matches > 0 then
     for index, match in ipairs(session.matches) do
       local marker = index == session.selection and ">" or " "
       lines[index] = string.format("%s %s", marker, match.item.text)
-      line_meta[index] = {
-        text = match.item.text,
-        text_col = 2,
-        match_ranges = match.match_ranges,
-      }
     end
   elseif #session.entries == 0 then
     lines = { "  no command history yet" }
@@ -84,9 +86,9 @@ local function render_results(session)
 
   vim.api.nvim_buf_clear_namespace(session.results_buf, namespace, 0, -1)
 
-  if session.config.ui.match_highlights and #line_meta > 0 then
-    for index, meta in ipairs(line_meta) do
-      local ranges = meta.match_ranges or highlight.find_match_ranges(meta.text, session.query)
+  if session.config.ui.match_highlights and #session.matches > 0 then
+    for index, match in ipairs(session.matches) do
+      local ranges = match_ranges_for_render(session, match)
 
       for _, range in ipairs(ranges) do
         vim.api.nvim_buf_add_highlight(
@@ -94,8 +96,8 @@ local function render_results(session)
           namespace,
           "PenguinMatch",
           index - 1,
-          meta.text_col + range[1],
-          meta.text_col + range[2]
+          2 + range[1],
+          2 + range[2]
         )
       end
     end
