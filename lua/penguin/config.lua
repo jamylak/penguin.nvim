@@ -1,6 +1,7 @@
 local M = {}
 
 M.defaults = {
+  direct_numeric_line_jumps_on_enter = true,
   open_on_bare_enter = false,
   native = {
     enabled = true,

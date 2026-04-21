@@ -209,13 +209,32 @@ session = require("penguin")._session
 
 assert(session)
 session:set_query("33")
-session:submit_query()
+session:confirm()
 
 vim.wait(1000, function()
   return vim.api.nvim_win_get_cursor(0)[1] == 33
 end)
 assert(vim.api.nvim_win_get_cursor(0)[1] == 33)
 assert(vim.fn.histget(":", -1) == "33")
+
+vim.cmd("enew!")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.fn["repeat"]({ "penguin" }, 40))
+vim.fn.histadd(":", "30verbose set number")
+
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+session:set_query("30")
+assert(session.matches[1].item.text == "30verbose set number")
+session:confirm()
+
+vim.wait(1000, function()
+  return vim.api.nvim_win_get_cursor(0)[1] == 30
+end)
+assert(vim.api.nvim_win_get_cursor(0)[1] == 30)
+assert(vim.fn.histget(":", -1) == "30")
 
 require("penguin").setup({
   open_on_bare_enter = true,

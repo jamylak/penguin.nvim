@@ -140,9 +140,15 @@ Current controls:
 - `Ctrl-n` / `Ctrl-p` to move
 - `Ctrl-w` to delete the previous word
 - `Enter` executes the selected item
+- bare numeric queries like `30` jump directly to that line on `Enter` by default
 - `Shift-Enter` executes the current text box contents directly
 - `Ctrl-e` fills the text box from the selected item without executing
 - `Esc` closes the picker
+
+Config note:
+
+- `direct_numeric_line_jumps_on_enter = true` makes fully numeric queries bypass
+  the selected suggestion on plain `Enter` so `30` jumps straight to line 30
 
 ## Local Development
 

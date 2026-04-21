@@ -62,6 +62,14 @@ local function execute_command(text)
 	return ok
 end
 
+local function should_submit_query_on_confirm(config, query)
+	if not config.direct_numeric_line_jumps_on_enter then
+		return false
+	end
+
+	return line_jump_target(vim.trim(query or "")) ~= nil
+end
+
 local function run_after_close(text)
 	vim.schedule(function()
 		execute_command(text)
@@ -222,6 +230,11 @@ function Session:submit_query()
 end
 
 function Session:confirm()
+	if should_submit_query_on_confirm(self.config, self.query) then
+		self:submit_query()
+		return
+	end
+
 	local text = self:selected_text()
 
 	if not text then
