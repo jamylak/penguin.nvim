@@ -11,7 +11,24 @@ vim.cmd.source(vim.fs.joinpath(root, "plugin", "penguin.lua"))
 
 local native = require("penguin.native")
 local matcher = require("penguin.matcher")
+local ui = require("penguin.ui")
 local exact
+
+local function extmarks_with_detail(buffer, namespace, detail_key, detail_value)
+  local matches = {}
+
+  for _, extmark in ipairs(vim.api.nvim_buf_get_extmarks(buffer, namespace, 0, -1, {
+    details = true,
+  })) do
+    local details = extmark[4] or {}
+
+    if details[detail_key] == detail_value then
+      matches[#matches + 1] = extmark
+    end
+  end
+
+  return matches
+end
 
 assert(native.available)
 assert(native.version() == 1)
@@ -99,6 +116,19 @@ assert(#session.matches >= 1)
 assert(#session.matches[1].match_ranges == 1)
 assert(session.matches[1].match_ranges[1][1] == 3)
 assert(session.matches[1].match_ranges[1][2] == 6)
+local match_extmarks = extmarks_with_detail(session.results_buf, ui.namespace, "hl_group", "PenguinMatch")
+local selection_extmarks = extmarks_with_detail(
+  session.results_buf,
+  ui.namespace,
+  "line_hl_group",
+  "Visual"
+)
+assert(#match_extmarks == 1)
+assert(#selection_extmarks == 1)
+assert(match_extmarks[1][2] == 0)
+assert(match_extmarks[1][3] == 5)
+assert(match_extmarks[1][4].end_col == 8)
+assert(match_extmarks[1][4].priority > selection_extmarks[1][4].priority)
 session:set_query("spl bot")
 assert(#session.matches >= 1)
 session:set_query("let g:penguin_selected = 7")

@@ -15,6 +15,22 @@ assert(vim.fn.maparg("<M-Space>", "n") ~= "")
 local matcher = require("penguin.matcher")
 local ui = require("penguin.ui")
 
+local function extmarks_with_detail(buffer, namespace, detail_key, detail_value)
+  local matches = {}
+
+  for _, extmark in ipairs(vim.api.nvim_buf_get_extmarks(buffer, namespace, 0, -1, {
+    details = true,
+  })) do
+    local details = extmark[4] or {}
+
+    if details[detail_key] == detail_value then
+      matches[#matches + 1] = extmark
+    end
+  end
+
+  return matches
+end
+
 assert(matcher.backend_name() == "native-fuzzy-query")
 
 assert(matcher.score("ckh", "checkhealth"))
@@ -39,7 +55,16 @@ assert(#session.matches >= 3)
 session:set_query("penguin sel")
 
 assert(session.matches[1].item.text == "let g:penguin_selected = 7")
-assert(#vim.api.nvim_buf_get_extmarks(session.results_buf, ui.namespace, 0, -1, {}) > 0)
+local match_extmarks = extmarks_with_detail(session.results_buf, ui.namespace, "hl_group", "PenguinMatch")
+local selection_extmarks = extmarks_with_detail(
+  session.results_buf,
+  ui.namespace,
+  "line_hl_group",
+  "Visual"
+)
+assert(#match_extmarks == 2)
+assert(#selection_extmarks == 1)
+assert(match_extmarks[1][4].priority > selection_extmarks[1][4].priority)
 
 session:complete_selection()
 

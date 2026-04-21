@@ -1,6 +1,8 @@
 local M = {}
 
 local namespace = vim.api.nvim_create_namespace("penguin.nvim")
+local selection_highlight_priority = 100
+local match_highlight_priority = 110
 local prompt_prefix = ": "
 M.namespace = namespace
 
@@ -57,6 +59,22 @@ local function set_buffer_options(buffer, prompt)
   vim.bo[buffer].swapfile = false
 end
 
+local function add_match_highlight(buffer, row, start_col, end_col)
+  vim.api.nvim_buf_set_extmark(buffer, namespace, row, start_col, {
+    end_col = end_col,
+    end_row = row,
+    hl_group = "PenguinMatch",
+    priority = match_highlight_priority,
+  })
+end
+
+local function add_selection_highlight(buffer, row)
+  vim.api.nvim_buf_set_extmark(buffer, namespace, row, 0, {
+    line_hl_group = "Visual",
+    priority = selection_highlight_priority,
+  })
+end
+
 local function match_ranges_for_render(session, match)
   if session.config.native and session.config.native.benchmark_only_lua then
     local highlight_baseline = require("penguin.highlight")
@@ -91,27 +109,13 @@ local function render_results(session)
       local ranges = match_ranges_for_render(session, match)
 
       for _, range in ipairs(ranges) do
-        vim.api.nvim_buf_add_highlight(
-          session.results_buf,
-          namespace,
-          "PenguinMatch",
-          index - 1,
-          2 + range[1],
-          2 + range[2]
-        )
+        add_match_highlight(session.results_buf, index - 1, 2 + range[1], 2 + range[2])
       end
     end
   end
 
   if session.selection > 0 then
-    vim.api.nvim_buf_add_highlight(
-      session.results_buf,
-      namespace,
-      "Visual",
-      session.selection - 1,
-      0,
-      -1
-    )
+    add_selection_highlight(session.results_buf, session.selection - 1)
   end
 end
 
