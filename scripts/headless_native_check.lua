@@ -129,6 +129,27 @@ assert(match_extmarks[1][2] == 0)
 assert(match_extmarks[1][3] == 5)
 assert(match_extmarks[1][4].end_col == 8)
 assert(match_extmarks[1][4].priority > selection_extmarks[1][4].priority)
+
+session.matches = {
+  {
+    item = {
+      recency = 0,
+      source = "history",
+      source_rank = 1,
+      text = "write",
+    },
+    match_ranges = {
+      { 99, 104 },
+    },
+    score = 100,
+  },
+}
+session.selection = 1
+assert(pcall(ui.render, session))
+
+local clamped_extmarks = extmarks_with_detail(session.results_buf, ui.namespace, "hl_group", "PenguinMatch")
+assert(#clamped_extmarks == 0)
+
 session:set_query("spl bot")
 assert(#session.matches >= 1)
 session:set_query("let g:penguin_selected = 7")

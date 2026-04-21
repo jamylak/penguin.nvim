@@ -59,7 +59,21 @@ local function set_buffer_options(buffer, prompt)
   vim.bo[buffer].swapfile = false
 end
 
-local function add_match_highlight(buffer, row, start_col, end_col)
+local function add_match_highlight(buffer, row, start_col, end_col, line_length)
+  line_length = math.max(line_length or 0, 0)
+  start_col = math.max(start_col or 0, 0)
+  end_col = math.max(end_col or 0, 0)
+
+  if start_col > line_length then
+    return
+  end
+
+  end_col = math.min(end_col, line_length)
+
+  if end_col <= start_col then
+    return
+  end
+
   vim.api.nvim_buf_set_extmark(buffer, namespace, row, start_col, {
     end_col = end_col,
     end_row = row,
@@ -107,9 +121,16 @@ local function render_results(session)
   if session.config.ui.match_highlights and #session.matches > 0 then
     for index, match in ipairs(session.matches) do
       local ranges = match_ranges_for_render(session, match)
+      local line_length = #(lines[index] or "")
 
       for _, range in ipairs(ranges) do
-        add_match_highlight(session.results_buf, index - 1, 2 + range[1], 2 + range[2])
+        add_match_highlight(
+          session.results_buf,
+          index - 1,
+          2 + range[1],
+          2 + range[2],
+          line_length
+        )
       end
     end
   end
