@@ -93,6 +93,23 @@ end)
 assert(vim.g.penguin_direct == 13)
 assert(vim.fn.histget(":", -1) == "let g:penguin_direct = 13")
 
+vim.cmd("enew!")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.fn["repeat"]({ "penguin" }, 40))
+
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+session:set_query("33")
+session:submit_query()
+
+vim.wait(1000, function()
+  return vim.api.nvim_win_get_cursor(0)[1] == 33
+end)
+assert(vim.api.nvim_win_get_cursor(0)[1] == 33)
+assert(vim.fn.histget(":", -1) == "33")
+
 require("penguin").open()
 
 session = require("penguin")._session

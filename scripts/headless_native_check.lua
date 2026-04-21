@@ -200,6 +200,23 @@ assert(saw_completion_match)
 
 require("penguin").close()
 
+vim.cmd("enew!")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.fn["repeat"]({ "penguin" }, 40))
+
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+session:set_query("33")
+session:submit_query()
+
+vim.wait(1000, function()
+  return vim.api.nvim_win_get_cursor(0)[1] == 33
+end)
+assert(vim.api.nvim_win_get_cursor(0)[1] == 33)
+assert(vim.fn.histget(":", -1) == "33")
+
 require("penguin").setup({
   open_on_bare_enter = true,
   native = {

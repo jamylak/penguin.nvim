@@ -11,8 +11,35 @@ local function record_command_history(command)
 	vim.fn.histadd(":", command)
 end
 
+---Return a 1-based line target when the typed command is only digits.
+local function line_jump_target(command)
+	if not command:match("^%d+$") then
+		return nil
+	end
+
+	local target = tonumber(command)
+
+	if not target then
+		return nil
+	end
+
+	return math.max(target, 1)
+end
+
+---Move the current window cursor to the requested line, clamped to the buffer.
+local function jump_to_line(target)
+	local window = vim.api.nvim_get_current_win()
+	local buffer = vim.api.nvim_win_get_buf(window)
+	local last_line = vim.api.nvim_buf_line_count(buffer)
+	local line = math.min(target, math.max(last_line, 1))
+
+	vim.api.nvim_win_set_cursor(window, { line, 0 })
+end
+
 local function execute_command(text)
 	local command = vim.trim(text or "")
+	-- If the input happens to be a bare number like `33`, treat it as a line jump.
+	local target = line_jump_target(command)
 
 	if command == "" then
 		return false
@@ -20,7 +47,13 @@ local function execute_command(text)
 
 	record_command_history(command)
 
-	local ok, err = pcall(vim.cmd, command)
+	local ok, err
+
+	if target then
+		ok, err = pcall(jump_to_line, target)
+	else
+		ok, err = pcall(vim.cmd, command)
+	end
 
 	if not ok then
 		vim.notify(("penguin.nvim: %s"):format(err), vim.log.levels.ERROR)
