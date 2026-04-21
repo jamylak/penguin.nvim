@@ -49,22 +49,48 @@ end
 
 local function build_history(size)
   local entries = {}
+  local templates = {
+    function(index)
+      return ("checkhealth mason %05d"):format(index)
+    end,
+    function(index)
+      return ("vertical botright split +%d"):format((index % 80) + 1)
+    end,
+    function(index)
+      return ("Git checkout feature/penguin-speed-%05d"):format(index)
+    end,
+    function(index)
+      return ("write ++p /tmp/penguin-%05d.log"):format(index)
+    end,
+    function(index)
+      return ("let g:penguin_selected = %d"):format((index % 97) + 1)
+    end,
+    function(index)
+      return ("set number relativenumber winwidth=%d"):format((index % 40) + 40)
+    end,
+    function(index)
+      return ("edit lua/penguin/session.lua | %d"):format((index % 200) + 1)
+    end,
+    function(index)
+      return ("lua require('penguin').open() -- run %05d"):format(index)
+    end,
+    function(index)
+      return ("30verbose set numberwidth=%d"):format((index % 9) + 1)
+    end,
+    function(index)
+      return ("MasonInstall lua-language-server-%05d"):format(index)
+    end,
+    function(index)
+      return ("Telescope find_files cwd=~/src/penguin.nvim/%05d"):format(index)
+    end,
+    function(index)
+      return ("bdelete %d"):format((index % 300) + 1)
+    end,
+  }
 
   for index = 1, size do
-    local text = ("command %05d alpha beta"):format(index)
-
-    if index % 10 == 0 then
-      text = ("checkhealth command %05d"):format(index)
-    elseif index % 15 == 0 then
-      text = ("vertical botright split %05d"):format(index)
-    elseif index % 21 == 0 then
-      text = ("git checkout feature-%05d"):format(index)
-    elseif index % 37 == 0 then
-      text = ("write session %05d"):format(index)
-    end
-
     entries[index] = {
-      text = text,
+      text = templates[((index - 1) % #templates) + 1](index),
     }
   end
 
@@ -126,6 +152,36 @@ local function run_native_exact(native, entries, queries, iterations)
   }
 end
 
+local function run_native_fuzzy_raw(native, entries, queries, iterations, limit)
+  local fuzzy_matcher = native.new_exact_matcher(entries)
+  local start_ms = hrtime_ms()
+  local total_matches = 0
+  local total_score = 0
+
+  for _ = 1, iterations do
+    for _, query in ipairs(queries) do
+      local query_result = native.library.penguin_exact_matcher_find_fuzzy(
+        fuzzy_matcher.handle,
+        query,
+        #query,
+        limit or 0
+      )
+
+      total_matches = total_matches + query_result.count
+
+      for index = 0, query_result.count - 1 do
+        total_score = total_score + query_result.results[index].score
+      end
+    end
+  end
+
+  return {
+    total_ms = hrtime_ms() - start_ms,
+    total_matches = total_matches,
+    total_score = total_score,
+  }
+end
+
 local root = repo_root()
 
 vim.opt.runtimepath:append(root)
@@ -145,7 +201,7 @@ local function configure_matcher(benchmark_only_lua)
   })
 end
 
-local function run_matcher_filter(entries, queries, iterations, benchmark_only_lua)
+local function run_matcher_filter(entries, queries, iterations, benchmark_only_lua, limit)
   local native_matcher = benchmark_only_lua and nil or native.new_exact_matcher(entries)
   local start_ms = hrtime_ms()
   local total_matches = 0
@@ -155,7 +211,7 @@ local function run_matcher_filter(entries, queries, iterations, benchmark_only_l
 
   for _ = 1, iterations do
     for _, query in ipairs(queries) do
-      local results = matcher.filter(entries, query, nil, {
+      local results = matcher.filter(entries, query, limit, {
         native_matcher = native_matcher,
       })
 
@@ -220,30 +276,48 @@ local scenarios = {
     name = "small",
     size = 100,
     iterations = 250,
-    queries = { "check", "split", "git", "write", "zzz", "a" },
+    exact_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin" },
+    fuzzy_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "gitco", "health mason", "zz", "30" },
   },
   {
     name = "medium",
     size = 1000,
     iterations = 75,
-    queries = { "check", "split", "git", "write", "zzz", "a" },
+    exact_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin" },
+    fuzzy_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "gitco", "health mason", "zz", "30" },
   },
   {
     name = "large",
     size = 10000,
     iterations = 10,
-    queries = { "check", "split", "git", "write", "zzz", "a" },
+    exact_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin" },
+    fuzzy_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "gitco", "health mason", "zz", "30" },
   },
 }
 
+local ui_limit = 12
+
 for _, scenario in ipairs(scenarios) do
   local entries = build_history(scenario.size)
-  local lua_result = run_lua_exact(entries, scenario.queries, scenario.iterations)
-  local native_result = run_native_exact(native, entries, scenario.queries, scenario.iterations)
-  local query_count = #scenario.queries * scenario.iterations
-  local lua_per_query_ms = lua_result.total_ms / query_count
-  local native_per_query_ms = native_result.total_ms / query_count
+  local lua_result = run_lua_exact(entries, scenario.exact_queries, scenario.iterations)
+  local native_result = run_native_exact(native, entries, scenario.exact_queries, scenario.iterations)
+  local native_fuzzy_raw_all = run_native_fuzzy_raw(native, entries, scenario.fuzzy_queries, scenario.iterations, nil)
+  local native_fuzzy_raw_topk = run_native_fuzzy_raw(native, entries, scenario.fuzzy_queries, scenario.iterations, ui_limit)
+  local matcher_lua_all = run_matcher_filter(entries, scenario.fuzzy_queries, scenario.iterations, true, nil)
+  local matcher_native_all = run_matcher_filter(entries, scenario.fuzzy_queries, scenario.iterations, false, nil)
+  local matcher_lua_topk = run_matcher_filter(entries, scenario.fuzzy_queries, scenario.iterations, true, ui_limit)
+  local matcher_native_topk = run_matcher_filter(entries, scenario.fuzzy_queries, scenario.iterations, false, ui_limit)
+  local exact_query_count = #scenario.exact_queries * scenario.iterations
+  local fuzzy_query_count = #scenario.fuzzy_queries * scenario.iterations
+  local lua_per_query_ms = lua_result.total_ms / exact_query_count
+  local native_per_query_ms = native_result.total_ms / exact_query_count
   local max_per_query_ms = math.max(lua_per_query_ms, native_per_query_ms)
+  local raw_fuzzy_all_per_query_ms = native_fuzzy_raw_all.total_ms / fuzzy_query_count
+  local raw_fuzzy_topk_per_query_ms = native_fuzzy_raw_topk.total_ms / fuzzy_query_count
+  local matcher_lua_all_per_query_ms = matcher_lua_all.total_ms / fuzzy_query_count
+  local matcher_native_all_per_query_ms = matcher_native_all.total_ms / fuzzy_query_count
+  local matcher_lua_topk_per_query_ms = matcher_lua_topk.total_ms / fuzzy_query_count
+  local matcher_native_topk_per_query_ms = matcher_native_topk.total_ms / fuzzy_query_count
 
   print(
     table.concat({
@@ -279,21 +353,15 @@ for _, scenario in ipairs(scenarios) do
     }, "\n")
   )
 
-  local matcher_lua_result = run_matcher_filter(entries, scenario.queries, scenario.iterations, true)
-  local matcher_native_result = run_matcher_filter(entries, scenario.queries, scenario.iterations, false)
-  local matcher_lua_per_query_ms = matcher_lua_result.total_ms / query_count
-  local matcher_native_per_query_ms = matcher_native_result.total_ms / query_count
-  local matcher_max_per_query_ms = math.max(matcher_lua_per_query_ms, matcher_native_per_query_ms)
-
   print(
     table.concat({
       "scenario=" .. scenario.name,
       "size=" .. scenario.size,
-      "backend=matcher_lua",
-      ("total_ms=%.3f"):format(matcher_lua_result.total_ms),
-      ("per_query_ms=%.6f"):format(matcher_lua_per_query_ms),
-      "matches=" .. matcher_lua_result.total_matches,
-      "score_sum=" .. matcher_lua_result.total_score,
+      "backend=native_fuzzy_raw_all",
+      ("total_ms=%.3f"):format(native_fuzzy_raw_all.total_ms),
+      ("per_query_ms=%.6f"):format(raw_fuzzy_all_per_query_ms),
+      "matches=" .. native_fuzzy_raw_all.total_matches,
+      "score_sum=" .. native_fuzzy_raw_all.total_score,
     }, " ")
   )
 
@@ -301,47 +369,127 @@ for _, scenario in ipairs(scenarios) do
     table.concat({
       "scenario=" .. scenario.name,
       "size=" .. scenario.size,
-      "backend=matcher_native_fuzzy_single",
-      ("total_ms=%.3f"):format(matcher_native_result.total_ms),
-      ("per_query_ms=%.6f"):format(matcher_native_per_query_ms),
-      "matches=" .. matcher_native_result.total_matches,
-      "score_sum=" .. matcher_native_result.total_score,
+      "backend=native_fuzzy_raw_topk12",
+      ("total_ms=%.3f"):format(native_fuzzy_raw_topk.total_ms),
+      ("per_query_ms=%.6f"):format(raw_fuzzy_topk_per_query_ms),
+      "matches=" .. native_fuzzy_raw_topk.total_matches,
+      "score_sum=" .. native_fuzzy_raw_topk.total_score,
     }, " ")
   )
 
   print(
     table.concat({
       "chart",
-      scenario.name .. "_matcher",
-      ("matcher_lua_baseline|%s| %.6f ms/query"):format(
-        bar(matcher_lua_per_query_ms, matcher_max_per_query_ms, 32),
-        matcher_lua_per_query_ms
+      scenario.name .. "_native_fuzzy",
+      ("native_raw_all  |%s| %.6f ms/query"):format(
+        bar(raw_fuzzy_all_per_query_ms, math.max(raw_fuzzy_all_per_query_ms, raw_fuzzy_topk_per_query_ms), 32),
+        raw_fuzzy_all_per_query_ms
       ),
-      ("matcher_native      |%s| %.6f ms/query"):format(
-        bar(matcher_native_per_query_ms, matcher_max_per_query_ms, 32),
-        matcher_native_per_query_ms
+      ("native_raw_topk|%s| %.6f ms/query"):format(
+        bar(raw_fuzzy_topk_per_query_ms, math.max(raw_fuzzy_all_per_query_ms, raw_fuzzy_topk_per_query_ms), 32),
+        raw_fuzzy_topk_per_query_ms
       ),
-      ("speedup=%.2fx"):format(matcher_lua_per_query_ms / matcher_native_per_query_ms),
+      ("speedup=%.2fx"):format(raw_fuzzy_all_per_query_ms / raw_fuzzy_topk_per_query_ms),
     }, "\n")
   )
 
   local native_highlight_result = run_highlight_runtime(
     entries,
-    scenario.queries,
+    scenario.fuzzy_queries,
     scenario.iterations,
     false
   )
   local lua_baseline_highlight_result = run_highlight_runtime(
     entries,
-    scenario.queries,
+    scenario.fuzzy_queries,
     scenario.iterations,
     true
   )
-  local native_highlight_per_query_ms = native_highlight_result.total_ms / query_count
+  local native_highlight_per_query_ms = native_highlight_result.total_ms / fuzzy_query_count
   local lua_baseline_highlight_per_query_ms =
-    lua_baseline_highlight_result.total_ms / query_count
+    lua_baseline_highlight_result.total_ms / fuzzy_query_count
   local highlight_max_per_query_ms =
     math.max(native_highlight_per_query_ms, lua_baseline_highlight_per_query_ms)
+
+  print(
+    table.concat({
+      "scenario=" .. scenario.name,
+      "size=" .. scenario.size,
+      "backend=matcher_lua_all",
+      ("total_ms=%.3f"):format(matcher_lua_all.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_lua_all_per_query_ms),
+      "matches=" .. matcher_lua_all.total_matches,
+      "score_sum=" .. matcher_lua_all.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario.name,
+      "size=" .. scenario.size,
+      "backend=matcher_native_all",
+      ("total_ms=%.3f"):format(matcher_native_all.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_native_all_per_query_ms),
+      "matches=" .. matcher_native_all.total_matches,
+      "score_sum=" .. matcher_native_all.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario.name,
+      "size=" .. scenario.size,
+      "backend=matcher_lua_topk12",
+      ("total_ms=%.3f"):format(matcher_lua_topk.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_lua_topk_per_query_ms),
+      "matches=" .. matcher_lua_topk.total_matches,
+      "score_sum=" .. matcher_lua_topk.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario.name,
+      "size=" .. scenario.size,
+      "backend=matcher_native_topk12",
+      ("total_ms=%.3f"):format(matcher_native_topk.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_native_topk_per_query_ms),
+      "matches=" .. matcher_native_topk.total_matches,
+      "score_sum=" .. matcher_native_topk.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "chart",
+      scenario.name .. "_matcher_all",
+      ("matcher_lua_all |%s| %.6f ms/query"):format(
+        bar(matcher_lua_all_per_query_ms, math.max(matcher_lua_all_per_query_ms, matcher_native_all_per_query_ms), 32),
+        matcher_lua_all_per_query_ms
+      ),
+      ("matcher_native  |%s| %.6f ms/query"):format(
+        bar(matcher_native_all_per_query_ms, math.max(matcher_lua_all_per_query_ms, matcher_native_all_per_query_ms), 32),
+        matcher_native_all_per_query_ms
+      ),
+      ("speedup=%.2fx"):format(matcher_lua_all_per_query_ms / matcher_native_all_per_query_ms),
+    }, "\n")
+  )
+
+  print(
+    table.concat({
+      "chart",
+      scenario.name .. "_matcher_topk",
+      ("matcher_lua_topk |%s| %.6f ms/query"):format(
+        bar(matcher_lua_topk_per_query_ms, math.max(matcher_lua_topk_per_query_ms, matcher_native_topk_per_query_ms), 32),
+        matcher_lua_topk_per_query_ms
+      ),
+      ("matcher_native  |%s| %.6f ms/query"):format(
+        bar(matcher_native_topk_per_query_ms, math.max(matcher_lua_topk_per_query_ms, matcher_native_topk_per_query_ms), 32),
+        matcher_native_topk_per_query_ms
+      ),
+      ("speedup=%.2fx"):format(matcher_lua_topk_per_query_ms / matcher_native_topk_per_query_ms),
+    }, "\n")
+  )
 
   print(
     table.concat({

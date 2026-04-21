@@ -84,6 +84,42 @@ assert(fuzzy_result.results[0].index == 0)
 assert(fuzzy_result.results[0].score == 611)
 assert(fuzzy_result.results[0].match_span_count == 0)
 
+local realistic_items = {
+  { text = "vertical botright split" },
+  { text = "set number relativenumber" },
+  { text = "let g:penguin_selected = 7" },
+  { text = "edit lua/penguin/session.lua" },
+  { text = "checkhealth mason" },
+}
+local realistic = native.new_exact_matcher(realistic_items)
+local realistic_results = native.find_fuzzy(realistic, realistic_items, "spl bot", 5)
+local duplicate_token_results = native.find_fuzzy(realistic, realistic_items, "check check", 5)
+local topk_items = {
+  { text = "set nu" },
+  { text = "set number" },
+  { text = "set norelativenumber" },
+}
+local topk_matcher = native.new_exact_matcher(topk_items)
+local topk_results = native.find_fuzzy(topk_matcher, topk_items, "set nu", 2)
+
+assert(#realistic_results >= 1)
+assert(realistic_results[1].item.text == "vertical botright split")
+assert(#realistic_results[1].match_ranges == 2)
+assert(realistic_results[1].match_ranges[1][1] == 9)
+assert(realistic_results[1].match_ranges[1][2] == 12)
+assert(realistic_results[1].match_ranges[2][1] == 18)
+assert(realistic_results[1].match_ranges[2][2] == 21)
+
+assert(#duplicate_token_results == 1)
+assert(duplicate_token_results[1].item.text == "checkhealth mason")
+assert(#duplicate_token_results[1].match_ranges == 1)
+assert(duplicate_token_results[1].match_ranges[1][1] == 0)
+assert(duplicate_token_results[1].match_ranges[1][2] == 5)
+
+assert(#topk_results == 2)
+assert(topk_results[1].item.text == "set nu")
+assert(topk_results[2].item.text == "set number")
+
 require("penguin").setup({
   native = {
     enabled = true,
