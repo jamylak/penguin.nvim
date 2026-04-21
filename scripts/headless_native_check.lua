@@ -236,6 +236,154 @@ end)
 assert(vim.api.nvim_win_get_cursor(0)[1] == 30)
 assert(vim.fn.histget(":", -1) == "30")
 
+local completion = require("penguin.completion")
+local original_complete = completion._complete
+local completion_calls = {}
+
+completion._complete = function(query, kind)
+  completion_calls[#completion_calls + 1] = {
+    kind = kind,
+    query = query,
+  }
+
+  if kind == "cmdline" and query == "checkhealth " then
+    return {
+      "vim.deprecated",
+      "vim.health",
+      "vim.lsp",
+      "vim.provider",
+    }
+  end
+
+  return {}
+end
+
+require("penguin").setup({
+  completion = {
+    debounce_ms = 10,
+    command_strategies = {
+      checkhealth = "prefix_cached_deferred",
+      slowcmd = "deferred",
+    },
+  },
+  native = {
+    enabled = true,
+  },
+})
+
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+session:set_query("check")
+assert(#completion_calls == 1)
+assert(completion_calls[1].kind == "command")
+assert(completion_calls[1].query == "check")
+
+completion_calls = {}
+session:set_query("slowcmd a")
+session:set_query("slowcmd ab")
+assert(#completion_calls == 0)
+
+vim.wait(1000, function()
+  return #completion_calls == 1
+end)
+
+assert(#completion_calls == 1)
+assert(completion_calls[1].kind == "cmdline")
+assert(completion_calls[1].query == "slowcmd ab")
+
+completion_calls = {}
+session:set_query("checkhealth ")
+session:set_query("checkhealth v")
+session:set_query("checkhealth vi")
+assert(#completion_calls == 0)
+
+vim.wait(1000, function()
+  return #completion_calls == 1
+end)
+
+assert(#completion_calls == 1)
+assert(completion_calls[1].kind == "cmdline")
+assert(completion_calls[1].query == "checkhealth ")
+
+local saw_deferred_completion = false
+
+for _, match in ipairs(session.matches) do
+  if match.item.text == "checkhealth vim.health" and match.item.source == "completion" then
+    saw_deferred_completion = true
+    break
+  end
+end
+
+assert(saw_deferred_completion)
+
+session:set_query("checkhealth vim")
+vim.wait(50)
+assert(#completion_calls == 1)
+
+completion._complete = original_complete
+require("penguin").close()
+
+local path_root = vim.fn.tempname()
+local path_child = vim.fs.joinpath(path_root, "penguinpathchild")
+local path_items
+
+assert(vim.fn.mkdir(path_child, "p") == 1)
+
+require("penguin").setup({
+  native = {
+    enabled = true,
+  },
+})
+path_items = require("penguin.completion").collect("edit " .. path_root .. "/", {})
+
+local saw_path_completion = false
+
+for _, item in ipairs(path_items) do
+  if item.text == "edit " .. path_child .. "/" and item.source == "completion" then
+    saw_path_completion = true
+    break
+  end
+end
+
+assert(saw_path_completion)
+
+completion._complete = function(query, kind)
+  completion_calls[#completion_calls + 1] = {
+    kind = kind,
+    query = query,
+  }
+
+  return {}
+end
+
+completion_calls = {}
+require("penguin").setup({
+  completion = {
+    debounce_ms = 10,
+    command_strategies = {
+      cd = "live",
+      checkhealth = "prefix_cached_deferred",
+    },
+  },
+  native = {
+    enabled = true,
+  },
+})
+require("penguin").open()
+session = require("penguin")._session
+assert(session)
+completion_calls = {}
+session:set_query("cd ../")
+assert(#completion_calls == 1)
+assert(completion_calls[1].kind == "cmdline")
+assert(completion_calls[1].query == "cd ../")
+
+completion._complete = original_complete
+require("penguin").close()
+
 require("penguin").setup({
   open_on_bare_enter = true,
   native = {

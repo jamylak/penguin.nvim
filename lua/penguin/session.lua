@@ -117,6 +117,9 @@ end
 function Session:new(config)
 	local session = setmetatable({
 		closed = false,
+		completion_cache = {},
+		completion_generation = 0,
+		completion_items = {},
 		config = config,
 		entries = history.collect(),
 		matches = {},
@@ -127,14 +130,13 @@ function Session:new(config)
 	return session
 end
 
-function Session:refresh()
+function Session:update_matches()
 	local limit = self.config.ui.max_results
-	local completion_items = completion.collect(self.query)
 	local history_matches = matcher.filter(self.entries, self.query, limit, {
 		native_matcher = self.native_history_matcher,
 	})
-	local completion_matches = matcher.filter(completion_items, self.query, limit, {
-		native_matcher = build_native_matcher(completion_items),
+	local completion_matches = matcher.filter(self.completion_items, self.query, limit, {
+		native_matcher = build_native_matcher(self.completion_items),
 	})
 
 	self.matches = merge_matches(history_matches, completion_matches, limit)
@@ -146,6 +148,54 @@ function Session:refresh()
 	end
 
 	ui.render(self)
+end
+
+function Session:refresh()
+	self.completion_generation = self.completion_generation + 1
+	local plan = completion.plan(self.query, self.completion_cache)
+
+	if plan.defer then
+		local generation = self.completion_generation
+		local debounce_ms = math.max((self.config.completion or {}).debounce_ms or 0, 0)
+
+		-- Keep the prompt responsive for commands that opted into deferred
+		-- argument completion. Live path-style commands stay synchronous because
+		-- they never produce a deferred completion plan in the first place.
+		self.completion_items = plan.immediate_items
+		self:update_matches()
+
+		if not plan.needs_fetch then
+			return
+		end
+
+		if debounce_ms == 0 then
+			self.completion_items = completion.collect(self.query, self.completion_cache)
+			self:update_matches()
+			return
+		end
+
+		vim.defer_fn(function()
+			-- Multiple timers may be queued while the user keeps typing. Only the
+			-- newest generation is allowed to fetch/update, which prevents repeated
+			-- work for stale deferred queries.
+			if self.closed or generation ~= self.completion_generation then
+				return
+			end
+
+			self.completion_items = completion.collect(self.query, self.completion_cache)
+
+			if self.closed or generation ~= self.completion_generation then
+				return
+			end
+
+			self:update_matches()
+		end, debounce_ms)
+
+		return
+	end
+
+	self.completion_items = completion.collect(self.query, self.completion_cache)
+	self:update_matches()
 end
 
 function Session:apply_query(query)
