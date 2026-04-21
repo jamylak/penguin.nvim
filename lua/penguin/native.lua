@@ -202,25 +202,27 @@ function M.find_fuzzy(matcher, items, query, limit)
   end
 
   for index = 0, result_count - 1 do
-    local item = items[query_result.results[index].index + 1]
+    local native_result = query_result.results[index]
+    local item = items[native_result.index + 1]
 
     if item then
+      local match_ranges = nil
+
+      if native_result.match_span_count > 0 then
+        match_ranges = {}
+
+        for span_index = 0, native_result.match_span_count - 1 do
+          match_ranges[span_index + 1] = {
+            native_result.match_span_starts[span_index],
+            native_result.match_span_ends[span_index],
+          }
+        end
+      end
+
       results[index + 1] = {
         item = item,
-        score = query_result.results[index].score,
-        match_ranges = (function()
-          local ranges = {}
-          local native_result = query_result.results[index]
-
-          for span_index = 0, native_result.match_span_count - 1 do
-            ranges[span_index + 1] = {
-              native_result.match_span_starts[span_index],
-              native_result.match_span_ends[span_index],
-            }
-          end
-
-          return ranges
-        end)(),
+        score = native_result.score,
+        match_ranges = match_ranges,
       }
     end
   end

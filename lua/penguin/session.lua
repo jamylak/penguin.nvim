@@ -114,12 +114,18 @@ local function merge_matches(history_matches, completion_matches, limit)
 	return matcher.sort_results(merged, limit)
 end
 
+local function set_completion_items(session, items)
+	session.completion_items = items or {}
+	session.completion_native_matcher = build_native_matcher(session.completion_items)
+end
+
 function Session:new(config)
 	local session = setmetatable({
 		closed = false,
 		completion_cache = {},
 		completion_generation = 0,
 		completion_items = {},
+		completion_native_matcher = nil,
 		config = config,
 		entries = history.collect(),
 		matches = {},
@@ -136,7 +142,7 @@ function Session:update_matches()
 		native_matcher = self.native_history_matcher,
 	})
 	local completion_matches = matcher.filter(self.completion_items, self.query, limit, {
-		native_matcher = build_native_matcher(self.completion_items),
+		native_matcher = self.completion_native_matcher,
 	})
 
 	self.matches = merge_matches(history_matches, completion_matches, limit)
@@ -161,7 +167,7 @@ function Session:refresh()
 		-- Keep the prompt responsive for commands that opted into deferred
 		-- argument completion. Live path-style commands stay synchronous because
 		-- they never produce a deferred completion plan in the first place.
-		self.completion_items = plan.immediate_items
+		set_completion_items(self, plan.immediate_items)
 		self:update_matches()
 
 		if not plan.needs_fetch then
@@ -169,7 +175,7 @@ function Session:refresh()
 		end
 
 		if debounce_ms == 0 then
-			self.completion_items = completion.collect(self.query, self.completion_cache)
+			set_completion_items(self, completion.collect(self.query, self.completion_cache))
 			self:update_matches()
 			return
 		end
@@ -182,7 +188,7 @@ function Session:refresh()
 				return
 			end
 
-			self.completion_items = completion.collect(self.query, self.completion_cache)
+			set_completion_items(self, completion.collect(self.query, self.completion_cache))
 
 			if self.closed or generation ~= self.completion_generation then
 				return
@@ -194,7 +200,7 @@ function Session:refresh()
 		return
 	end
 
-	self.completion_items = completion.collect(self.query, self.completion_cache)
+	set_completion_items(self, completion.collect(self.query, self.completion_cache))
 	self:update_matches()
 end
 

@@ -332,9 +332,6 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
         /* Buffer still has room, so append this match directly. */
         matcher->results[count].index = index;
         matcher->results[count].score = score;
-        penguin_collect_match_spans_for_query(
-            &matcher->results[count], matcher->lower_corpus_text + matcher->text_offsets[index],
-            matcher->text_lengths[index], query, query_length);
         count++;
 
         if (count == kept_limit) {
@@ -349,16 +346,22 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
          */
         matcher->results[worst_index].index = index;
         matcher->results[worst_index].score = score;
-        penguin_collect_match_spans_for_query(
-            &matcher->results[worst_index],
-            matcher->lower_corpus_text + matcher->text_offsets[index],
-            matcher->text_lengths[index], query, query_length);
         worst_index = penguin_find_worst_result_index(matcher->results, count);
       }
     }
   }
 
   penguin_sort_results_by_score(matcher->results, count);
+
+  for (index = 0; index < count; index++) {
+    int result_index = matcher->results[index].index;
+
+    penguin_collect_match_spans_for_query(
+        &matcher->results[index],
+        matcher->lower_corpus_text + matcher->text_offsets[result_index],
+        matcher->text_lengths[result_index], query, query_length);
+  }
+
   /* Publish phase:
    *   query_result -> reusable matcher->results buffer
    *   Lua later reads [index, score] pairs from that stable view
