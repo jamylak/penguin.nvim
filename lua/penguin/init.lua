@@ -1,4 +1,5 @@
 local config = require("penguin.config")
+local completion = require("penguin.completion")
 local matcher = require("penguin.matcher")
 local native = require("penguin.native")
 local normal_enter = require("penguin.normal_enter")
@@ -23,6 +24,7 @@ function M.setup(opts)
   end
 
   matcher.configure(M.config)
+  completion.configure(M.config)
 
   if M.config.open_on_bare_enter then
     normal_enter.enable()
