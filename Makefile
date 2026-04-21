@@ -12,14 +12,15 @@ SHARED_FLAGS := -shared -fPIC
 endif
 
 NATIVE_LIB := $(CURDIR)/build/penguin_filter.$(LIB_EXT)
+NATIVE_SOURCES := $(CURDIR)/src/penguin_filter.c $(CURDIR)/src/penguin_match_spans.c
 
 .PHONY: native run run-lua bench check check-lua clean
 
 native: $(NATIVE_LIB)
 
-$(NATIVE_LIB): $(CURDIR)/src/penguin_filter.c
+$(NATIVE_LIB): $(NATIVE_SOURCES)
 	mkdir -p $(CURDIR)/build
-	$(CC) $(CFLAGS) $(SHARED_FLAGS) -o $(NATIVE_LIB) $(CURDIR)/src/penguin_filter.c
+	$(CC) $(CFLAGS) $(SHARED_FLAGS) -o $(NATIVE_LIB) $(NATIVE_SOURCES)
 
 run: native
 	$(NVIM) -u $(CURDIR)/scripts/minimal_native_init.lua

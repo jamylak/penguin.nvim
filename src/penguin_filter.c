@@ -1,3 +1,6 @@
+#include "penguin_filter_types.h"
+#include "penguin_match_spans.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,11 +17,6 @@
  *   history is still expected to stay in the low single-digit MB range
  *
  */
-typedef struct penguin_result {
-  int index;
-  int score;
-} penguin_result;
-
 typedef struct penguin_query_result {
   int count;
   const penguin_result *results;
@@ -334,6 +332,9 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
         /* Buffer still has room, so append this match directly. */
         matcher->results[count].index = index;
         matcher->results[count].score = score;
+        penguin_collect_match_spans_for_query(
+            &matcher->results[count], matcher->lower_corpus_text + matcher->text_offsets[index],
+            matcher->text_lengths[index], query, query_length);
         count++;
 
         if (count == kept_limit) {
@@ -348,6 +349,10 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
          */
         matcher->results[worst_index].index = index;
         matcher->results[worst_index].score = score;
+        penguin_collect_match_spans_for_query(
+            &matcher->results[worst_index],
+            matcher->lower_corpus_text + matcher->text_offsets[index],
+            matcher->text_lengths[index], query, query_length);
         worst_index = penguin_find_worst_result_index(matcher->results, count);
       }
     }
@@ -627,6 +632,7 @@ const penguin_query_result *penguin_exact_matcher_find_exact(
     if (score >= 0) {
       matcher->results[count].index = index;
       matcher->results[count].score = score;
+      penguin_result_clear_match_spans(&matcher->results[count]);
       count++;
     }
   }

@@ -69,6 +69,7 @@ local function render_results(session)
       line_meta[index] = {
         text = match.item.text,
         text_col = 2,
+        match_ranges = match.match_ranges,
       }
     end
   elseif #session.entries == 0 then
@@ -85,7 +86,7 @@ local function render_results(session)
 
   if session.config.ui.match_highlights and #line_meta > 0 then
     for index, meta in ipairs(line_meta) do
-      local ranges = highlight.find_match_ranges(meta.text, session.query)
+      local ranges = meta.match_ranges or highlight.find_match_ranges(meta.text, session.query)
 
       for _, range in ipairs(ranges) do
         vim.api.nvim_buf_add_highlight(

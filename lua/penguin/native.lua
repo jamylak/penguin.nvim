@@ -17,6 +17,9 @@ int penguin_stub_version(void);
 typedef struct {
   int index;
   int score;
+  int match_span_count;
+  int match_span_starts[24];
+  int match_span_ends[24];
 } penguin_result;
 typedef struct {
   int count;
@@ -205,6 +208,19 @@ function M.find_fuzzy(matcher, items, query, limit)
       results[index + 1] = {
         item = item,
         score = query_result.results[index].score,
+        match_ranges = (function()
+          local ranges = {}
+          local native_result = query_result.results[index]
+
+          for span_index = 0, native_result.match_span_count - 1 do
+            ranges[span_index + 1] = {
+              native_result.match_span_starts[span_index],
+              native_result.match_span_ends[span_index],
+            }
+          end
+
+          return ranges
+        end)(),
       }
     end
   end
