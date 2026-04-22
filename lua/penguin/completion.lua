@@ -2,6 +2,8 @@ local M = {}
 local command_strategies = {
   checkhealth = "prefix_cached_deferred",
 }
+local all_commands_cache_key = "__penguin_all_commands__"
+local command_fuzzy_fallback_min_query_length = 4
 
 M._complete = function(query, kind)
   return vim.fn.getcompletion(query, kind)
@@ -123,6 +125,43 @@ local function build_items(prefix, values)
 end
 
 ---@param context { cache_key: string|nil, defer: boolean, kind: string, lookup_query: string, prefix: string }
+---@param values string[]
+---@return boolean
+local function should_fallback_to_all_commands(context, values)
+  if context.kind ~= "command" or #values > 0 then
+    return false
+  end
+
+  if #context.lookup_query < command_fuzzy_fallback_min_query_length then
+    return false
+  end
+
+  return true
+end
+
+---@param cache table<string, string[]>|nil
+---@return string[]
+local function fetch_all_command_values(cache)
+  local cached = cache and cache[all_commands_cache_key]
+
+  if cached ~= nil then
+    return cached
+  end
+
+  local ok, values = pcall(M._complete, "", "command")
+
+  if not ok then
+    values = {}
+  end
+
+  if cache then
+    cache[all_commands_cache_key] = values
+  end
+
+  return values
+end
+
+---@param context { cache_key: string|nil, defer: boolean, kind: string, lookup_query: string, prefix: string }
 ---@param cache table<string, string[]>|nil
 ---@return string[]
 local function fetch_values(context, cache)
@@ -136,6 +175,25 @@ local function fetch_values(context, cache)
 
   if not ok then
     values = {}
+  end
+
+  if should_fallback_to_all_commands(context, values) then
+    -- Repro from the Neogit case:
+    --   getcompletion("Neogit", "command")
+    --     -> { "Neogit", "NeogitDiff", "NeogitDiffMain", ... }
+    --   getcompletion("Neogitdiff", "command")
+    --     -> {}
+    --
+    -- Neovim only answers literal-prefix command completion here, so the more
+    -- specific probe loses `NeogitDiff` entirely even though Penguin's fuzzy
+    -- matcher would still rank it as the best hit. Falling back to the full
+    -- command list once lets the native matcher recover that result.
+    --
+    -- The minimum length keeps short misses like `ckh` from pulling the whole
+    -- command table into Lua. This fallback is intentionally lazy and cached:
+    -- one extra `getcompletion("", "command")` on the first long prefix miss,
+    -- then reuse that list for the rest of the session.
+    values = fetch_all_command_values(cache)
   end
 
   if cache and context.cache_key then
