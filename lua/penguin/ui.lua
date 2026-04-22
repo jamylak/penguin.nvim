@@ -160,6 +160,10 @@ local function refresh_match_highlights_for_row(session, row, match)
     return
   end
 
+  -- `nvim_buf_set_lines()` replaces the row contents and drops extmarks that
+  -- lived on that row. The incremental scroll path rewrites exactly two rows,
+  -- so this helper restores the `PenguinMatch` extmarks for those rewritten
+  -- rows instead of forcing a full results rerender.
   line = vim.api.nvim_buf_get_lines(session.results_buf, row, row + 1, false)[1] or ""
 
   for _, range in ipairs(match_ranges_for_render(session, match)) do
@@ -207,9 +211,10 @@ local function update_selection_only(session, previous_selection)
   --   - re-adding all match-highlight extmarks
   --
   -- Focused 100-row benchmark, same query/result set:
-  --   before full rerender:      0.298167 ms/step
-  --   after incremental update:  0.053381 ms/step
-  --   speedup:                   ~5.6x
+  --   no fix / full rerender:        0.324450 ms/step
+  --   broken incremental version:    0.053381 ms/step
+  --   fixed incremental version:     0.063696 ms/step
+  --   fixed speedup vs no fix:       ~5.1x
   vim.bo[buffer].modifiable = true
 
   if previous_selection and previous_selection > 0 and previous_selection <= #session.matches then
@@ -217,6 +222,9 @@ local function update_selection_only(session, previous_selection)
     local previous_match = session.matches[previous_selection]
 
     update_selection_line(buffer, previous_row, previous_match, false)
+    -- This row-level highlight refresh is the line that fixes the visual
+    -- regression where moving selection erased match highlights on the row that
+    -- was just rewritten.
     refresh_match_highlights_for_row(session, previous_row, previous_match)
   end
 
@@ -225,6 +233,7 @@ local function update_selection_only(session, previous_selection)
     local current_match = session.matches[session.selection]
 
     update_selection_line(buffer, current_row, current_match, true)
+    -- Reapply highlights for the newly selected rewritten row too.
     refresh_match_highlights_for_row(session, current_row, current_match)
   end
 

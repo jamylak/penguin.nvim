@@ -12,6 +12,11 @@ require("penguin").setup({
   native = {
     enabled = true,
   },
+  ui = {
+    -- `make run` is for manual large-list UX checks, so show the bigger window
+    -- there even though the plugin default remains smaller.
+    max_results = 100,
+  },
 })
 
 vim.opt.termguicolors = true
@@ -19,24 +24,40 @@ vim.opt.termguicolors = true
 vim.api.nvim_create_autocmd("VimEnter", {
   once = true,
   callback = function()
-    local seed_history = {
-      "edit ~/.config/nvim/init.lua",
-      "Lazy",
-      "ls",
-      "checkhealth",
-      "vertical botright split",
-      "bdelete",
-      "write",
-      "lua require('penguin').open()",
+    local templates = {
+      function(index)
+        return ("edit ~/.config/nvim/init.lua -- run %03d"):format(index)
+      end,
+      function(index)
+        return ("Lazy sync %03d"):format(index)
+      end,
+      function(index)
+        return ("checkhealth provider%03d"):format(index)
+      end,
+      function(index)
+        return ("vertical botright split +%d"):format((index % 80) + 1)
+      end,
+      function(index)
+        return ("bdelete %d"):format((index % 120) + 1)
+      end,
+      function(index)
+        return ("write ++p /tmp/penguin-run-%03d.log"):format(index)
+      end,
+      function(index)
+        return ("lua require('penguin').open() -- run %03d"):format(index)
+      end,
+      function(index)
+        return ("set number relativenumber winwidth=%d"):format((index % 40) + 40)
+      end,
     }
 
-    for _, command in ipairs(seed_history) do
-      vim.fn.histadd(":", command)
+    for index = 1, 140 do
+      vim.fn.histadd(":", templates[((index - 1) % #templates) + 1](index))
     end
 
     vim.schedule(function()
       vim.notify(
-        "penguin.nvim native fuzzy session ready. Run :Penguin",
+        "penguin.nvim native fuzzy session ready with a 100-row manual test window. Run :Penguin",
         vim.log.levels.INFO
       )
     end)
