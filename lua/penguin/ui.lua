@@ -177,7 +177,7 @@ function M.open(session)
     relative = "editor",
     row = size.results_row,
     style = "minimal",
-    title = " 🐧 History ",
+    title = " 🕘 History ",
     title_pos = "center",
     width = size.width,
   })
