@@ -14,7 +14,7 @@ endif
 NATIVE_LIB := $(CURDIR)/build/penguin_filter.$(LIB_EXT)
 NATIVE_SOURCES := $(CURDIR)/src/penguin_filter.c $(CURDIR)/src/penguin_match_spans.c
 
-.PHONY: native run run-lua bench check check-lua clean
+.PHONY: native run run-lua bench bench-visible100 bench-long check check-lua clean
 
 native: $(NATIVE_LIB)
 
@@ -30,6 +30,12 @@ run-lua:
 
 bench: native
 	$(NVIM) --headless -u NONE -i NONE -l $(CURDIR)/scripts/headless_bench.lua
+
+bench-visible100: native
+	PENGUIN_BENCH_PROFILE=visible100 $(NVIM) --headless -u NONE -i NONE -l $(CURDIR)/scripts/headless_bench.lua
+
+bench-long: native
+	PENGUIN_BENCH_PROFILE=long $(NVIM) --headless -u NONE -i NONE -l $(CURDIR)/scripts/headless_bench.lua
 
 check: native
 	$(NVIM) --headless -u NONE -i NONE -l $(CURDIR)/scripts/headless_native_check.lua

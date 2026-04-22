@@ -206,6 +206,20 @@ Headless benchmark run:
 make bench
 ```
 
-That runs [scripts/headless_bench.lua](/Users/james/proj/penguin.nvim/scripts/headless_bench.lua), which compares the current Lua exact-scan baseline, native exact-scan baseline, and the current matcher runtime slice across multiple dataset sizes and query scenarios.
+That runs the default quick profile from [scripts/headless_bench.lua](/Users/james/proj/penguin.nvim-improve03/scripts/headless_bench.lua), which compares the current Lua exact-scan baseline, native exact-scan baseline, and the current matcher runtime slice across the routine benchmark scenarios.
+
+Focused 100-row visible-list benchmark:
+
+```sh
+make bench-visible100
+```
+
+That runs only the `visible100` scenario, including the `selection_render_runtime` slice that measures repeated selection movement through a 100-row rendered list.
+
+Full long benchmark run:
+
+```sh
+make bench-long
+```
 
 The benchmark output includes both raw timings and a simple ASCII bar chart per scenario.

@@ -3,6 +3,16 @@ local function repo_root()
   return vim.fs.dirname(vim.fs.dirname(source))
 end
 
+local function bench_profile()
+  local profile = (vim.env.PENGUIN_BENCH_PROFILE or ""):lower()
+
+  if profile == "" then
+    return "default"
+  end
+
+  return profile
+end
+
 local function hrtime_ms()
   return vim.uv.hrtime() / 1e6
 end
@@ -184,9 +194,11 @@ end
 
 local run_matcher_filter
 local run_highlight_runtime
+local run_selection_render_runtime
 
 local function run_query_group(native, entries, scenario_name, label, queries, iterations, ui_limit)
   local fuzzy_query_count = #queries * iterations
+  local selection_steps = ui_limit * iterations
   local native_fuzzy_raw_all = run_native_fuzzy_raw(native, entries, queries, iterations, nil)
   local native_fuzzy_raw_topk = run_native_fuzzy_raw(native, entries, queries, iterations, ui_limit)
   local matcher_lua_all = run_matcher_filter(entries, queries, iterations, true, nil)
@@ -204,6 +216,8 @@ local function run_query_group(native, entries, scenario_name, label, queries, i
   local native_highlight_per_query_ms = native_highlight_result.total_ms / fuzzy_query_count
   local lua_baseline_highlight_per_query_ms =
     lua_baseline_highlight_result.total_ms / fuzzy_query_count
+  local selection_render_result = run_selection_render_runtime(entries, queries, iterations, ui_limit)
+  local selection_render_per_step_ms = selection_render_result.total_ms / selection_steps
   local highlight_max_per_query_ms =
     math.max(native_highlight_per_query_ms, lua_baseline_highlight_per_query_ms)
 
@@ -368,6 +382,19 @@ local function run_query_group(native, entries, scenario_name, label, queries, i
       ("speedup=%.2fx"):format(lua_baseline_highlight_per_query_ms / native_highlight_per_query_ms),
     }, "\n")
   )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=selection_render_runtime",
+      "ui_limit=" .. ui_limit,
+      ("total_ms=%.3f"):format(selection_render_result.total_ms),
+      ("per_step_ms=%.6f"):format(selection_render_per_step_ms),
+      "steps=" .. selection_render_result.total_steps,
+      "rows=" .. selection_render_result.total_rows,
+    }, " ")
+  )
 end
 
 local root = repo_root()
@@ -459,6 +486,68 @@ run_highlight_runtime = function(entries, queries, iterations, use_lua_baseline)
   }
 end
 
+run_selection_render_runtime = function(entries, queries, iterations, ui_limit)
+  local ui = require("penguin.ui")
+  local session = {
+    config = {
+      native = {
+        benchmark_only_lua = false,
+      },
+      ui = {
+        match_highlights = true,
+      },
+    },
+    entries = entries,
+    matches = {},
+    query = "",
+    results_buf = vim.api.nvim_create_buf(false, true),
+    selection = 1,
+  }
+  local native_matcher = native.new_exact_matcher(entries)
+  local start_ms = hrtime_ms()
+  local total_rows = 0
+  local total_steps = 0
+
+  -- This benchmark slice is intentionally different from the matcher slices.
+  -- It measures "I already have a rendered result list; how expensive is it to
+  -- move the active selection through it repeatedly?".
+  --
+  -- For `visible100`, that models the exact workload we care about:
+  -- keeping a 100-row list on screen and scrolling through it instead of
+  -- narrowing the query further.
+  for _ = 1, iterations do
+    for _, query in ipairs(queries) do
+      session.query = query
+      session.matches = matcher.filter(entries, query, ui_limit, {
+        native_matcher = native_matcher,
+      })
+      session.selection = #session.matches > 0 and 1 or 0
+      ui.render(session)
+
+      total_rows = total_rows + #session.matches
+
+      if #session.matches > 0 then
+        -- Simulate repeated next-item scrolling over that already-rendered
+        -- list. This isolates selection-movement cost from query/matching cost,
+        -- so we can tell whether "show 100 rows and scroll" stays cheap.
+        for _ = 1, #session.matches do
+          local previous_selection = session.selection
+
+          session.selection = ((session.selection - 1 + 1) % #session.matches) + 1
+          ui.update_selection(session, previous_selection)
+          total_steps = total_steps + 1
+        end
+      end
+    end
+  end
+
+  return {
+    total_ms = hrtime_ms() - start_ms,
+    total_rows = total_rows,
+    total_steps = total_steps,
+  }
+end
+
 local scenarios = {
   {
     name = "small",
@@ -487,56 +576,102 @@ local scenarios = {
     common_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin", "gitco", "mason" },
     rare_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "health mason", "zz", "30", "++p log" },
   },
+  {
+    name = "visible100",
+    size = 10000,
+    iterations = 15,
+    exact_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin" },
+    fuzzy_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "gitco", "health mason", "zz", "30" },
+    common_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin", "gitco", "mason" },
+    rare_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "health mason", "zz", "30", "++p log" },
+  },
 }
 
-local ui_limit = 12
+local scenario_ui_limits = {
+  small = 12,
+  medium = 12,
+  large = 12,
+  visible100 = 100,
+}
+
+local scenario_profiles = {
+  small = "default",
+  medium = "default",
+  large = "default",
+  visible100 = "visible100",
+}
+
+local function include_scenario(name)
+  local profile = bench_profile()
+  local scenario_profile = scenario_profiles[name] or "default"
+
+  -- Default bench stays routine-fast so it gets run often.
+  -- Focused heavy scenarios such as `visible100` live behind explicit bench
+  -- profiles (`make bench-visible100` / `make bench-long`).
+  if profile == "default" then
+    return scenario_profile == "default"
+  end
+
+  if profile == "visible100" then
+    return name == "visible100"
+  end
+
+  if profile == "long" then
+    return true
+  end
+
+  error(("unknown PENGUIN_BENCH_PROFILE: %s"):format(profile))
+end
 
 for _, scenario in ipairs(scenarios) do
-  local entries = build_history(scenario.size)
-  local lua_result = run_lua_exact(entries, scenario.exact_queries, scenario.iterations)
-  local native_result = run_native_exact(native, entries, scenario.exact_queries, scenario.iterations)
-  local exact_query_count = #scenario.exact_queries * scenario.iterations
-  local lua_per_query_ms = lua_result.total_ms / exact_query_count
-  local native_per_query_ms = native_result.total_ms / exact_query_count
-  local max_per_query_ms = math.max(lua_per_query_ms, native_per_query_ms)
+  if include_scenario(scenario.name) then
+    local entries = build_history(scenario.size)
+    local ui_limit = scenario_ui_limits[scenario.name] or 12
+    local lua_result = run_lua_exact(entries, scenario.exact_queries, scenario.iterations)
+    local native_result = run_native_exact(native, entries, scenario.exact_queries, scenario.iterations)
+    local exact_query_count = #scenario.exact_queries * scenario.iterations
+    local lua_per_query_ms = lua_result.total_ms / exact_query_count
+    local native_per_query_ms = native_result.total_ms / exact_query_count
+    local max_per_query_ms = math.max(lua_per_query_ms, native_per_query_ms)
 
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=lua_exact",
-      ("total_ms=%.3f"):format(lua_result.total_ms),
-      ("per_query_ms=%.6f"):format(lua_per_query_ms),
-      "matches=" .. lua_result.total_matches,
-      "score_sum=" .. lua_result.total_score,
-    }, " ")
-  )
+    print(
+      table.concat({
+        "scenario=" .. scenario.name,
+        "size=" .. scenario.size,
+        "backend=lua_exact",
+        ("total_ms=%.3f"):format(lua_result.total_ms),
+        ("per_query_ms=%.6f"):format(lua_per_query_ms),
+        "matches=" .. lua_result.total_matches,
+        "score_sum=" .. lua_result.total_score,
+      }, " ")
+    )
 
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=native_exact",
-      ("total_ms=%.3f"):format(native_result.total_ms),
-      ("per_query_ms=%.6f"):format(native_per_query_ms),
-      "matches=" .. native_result.total_matches,
-      "score_sum=" .. native_result.total_score,
-    }, " ")
-  )
+    print(
+      table.concat({
+        "scenario=" .. scenario.name,
+        "size=" .. scenario.size,
+        "backend=native_exact",
+        ("total_ms=%.3f"):format(native_result.total_ms),
+        ("per_query_ms=%.6f"):format(native_per_query_ms),
+        "matches=" .. native_result.total_matches,
+        "score_sum=" .. native_result.total_score,
+      }, " ")
+    )
 
-  print(
-    table.concat({
-      "chart",
-      scenario.name,
-      ("lua_exact    |%s| %.6f ms/query"):format(bar(lua_per_query_ms, max_per_query_ms, 32), lua_per_query_ms),
-      ("native_exact |%s| %.6f ms/query"):format(bar(native_per_query_ms, max_per_query_ms, 32), native_per_query_ms),
-      ("speedup=%.2fx"):format(lua_per_query_ms / native_per_query_ms),
-    }, "\n")
-  )
+    print(
+      table.concat({
+        "chart",
+        scenario.name,
+        ("lua_exact    |%s| %.6f ms/query"):format(bar(lua_per_query_ms, max_per_query_ms, 32), lua_per_query_ms),
+        ("native_exact |%s| %.6f ms/query"):format(bar(native_per_query_ms, max_per_query_ms, 32), native_per_query_ms),
+        ("speedup=%.2fx"):format(lua_per_query_ms / native_per_query_ms),
+      }, "\n")
+    )
 
-  run_query_group(native, entries, scenario.name, "mixed", scenario.fuzzy_queries, scenario.iterations, ui_limit)
-  run_query_group(native, entries, scenario.name, "common", scenario.common_queries, scenario.iterations, ui_limit)
-  run_query_group(native, entries, scenario.name, "rare", scenario.rare_queries, scenario.iterations, ui_limit)
+    run_query_group(native, entries, scenario.name, "mixed", scenario.fuzzy_queries, scenario.iterations, ui_limit)
+    run_query_group(native, entries, scenario.name, "common", scenario.common_queries, scenario.iterations, ui_limit)
+    run_query_group(native, entries, scenario.name, "rare", scenario.rare_queries, scenario.iterations, ui_limit)
+  end
 end
 
 vim.cmd("qa!")

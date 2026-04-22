@@ -221,6 +221,44 @@ assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1] ~= "  no 
 
 require("penguin").close()
 
+for index = 1, 160 do
+  vim.fn.histadd(":", ("PenguinBenchCommand%03d"):format(index))
+end
+
+require("penguin").setup({
+  ui = {
+    max_results = 100,
+  },
+})
+
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+assert(#session.matches == 100)
+assert(#vim.api.nvim_buf_get_lines(session.results_buf, 0, -1, false) == 100)
+
+local initial_line = vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]
+
+assert(initial_line:sub(1, 2) == "> ")
+
+session:move_selection(50)
+
+local selection_extmarks_large = extmarks_with_detail(
+  session.results_buf,
+  ui.namespace,
+  "line_hl_group",
+  "Visual"
+)
+
+assert(#selection_extmarks_large == 1)
+assert(selection_extmarks_large[1][2] == 50)
+assert(vim.api.nvim_buf_get_lines(session.results_buf, 50, 51, false)[1]:sub(1, 2) == "> ")
+assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]:sub(1, 2) == "  ")
+
+require("penguin").close()
+
 local completion = require("penguin.completion")
 local original_complete = completion._complete
 local completion_calls = {}
