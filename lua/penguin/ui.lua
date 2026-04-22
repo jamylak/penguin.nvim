@@ -134,6 +134,78 @@ local function render_results(session)
   end
 end
 
+---Visual model:
+---
+---  viewport before:
+---    top=41 bottom=52
+---    41  "  alpha"
+---    42  "  beta"
+---    ...
+---    52  "> omega"
+---
+---  after one more <Down>:
+---    top=42 bottom=53
+---    42  "  beta"
+---    ...
+---    52  "  omega"
+---    53  "> zeta"
+---
+---This keeps the active result row on-screen while avoiding scroll work when
+---the selection is already inside the current viewport. The hot path uses
+---cached window geometry and cached topline state so ordinary in-viewport
+---moves still pay only the incremental row-rewrite cost.
+local function ensure_selection_visible(session)
+  local buffer = session.results_buf
+  local window = session.results_win
+  local selection = session.selection
+
+  if not buffer or not window then
+    return
+  end
+
+  if not vim.api.nvim_buf_is_valid(buffer) or not vim.api.nvim_win_is_valid(window) then
+    return
+  end
+
+  if selection <= 0 then
+    return
+  end
+
+  local total_lines = vim.api.nvim_buf_line_count(buffer)
+  local height = session.results_height
+
+  if total_lines <= 0 or height <= 0 then
+    return
+  end
+
+  -- Treat the results window as a simple cached viewport:
+  --   `top`    = first visible 1-based result row
+  --   `bottom` = last visible 1-based result row
+  --   `max_top` prevents scrolling past the final page of results
+  local max_top = math.max(total_lines - height + 1, 1)
+  local top = math.max(math.min(session.results_topline or 1, max_top), 1)
+  local bottom = math.min(top + height - 1, total_lines)
+
+  selection = math.min(selection, total_lines)
+
+  if selection >= top and selection <= bottom then
+    return
+  end
+
+  if selection < top then
+    top = selection
+  else
+    top = math.min(selection - height + 1, max_top)
+  end
+
+  session.results_topline = top
+
+  -- Keep the hidden cursor aligned with the active row so Neovim performs the
+  -- actual window scroll for us only when the active row would otherwise leave
+  -- the viewport.
+  vim.api.nvim_win_set_cursor(window, { selection, 0 })
+end
+
 local function render_result_line(match, selected)
   -- Each rendered result line is just a stable item text plus a 1-character
   -- selection marker. That makes selection movement cheap: the "old selected"
@@ -296,6 +368,7 @@ function M.open(session)
 
   set_window_options(session.prompt_win)
   set_window_options(session.results_win)
+  session.results_height = size.results_height
   vim.wo[session.prompt_win].winhighlight =
     "FloatBorder:PenguinAccent,FloatTitle:PenguinAccent"
   vim.wo[session.results_win].winhighlight =
@@ -380,11 +453,22 @@ function M.open(session)
 end
 
 function M.render(session)
+  local results_win = session.results_win
+
   if not session.results_buf or not vim.api.nvim_buf_is_valid(session.results_buf) then
     return
   end
 
   render_results(session)
+
+  -- The floating results window height is mostly stable, but a full rerender is
+  -- the right time to refresh the cached value in case editor geometry changed.
+  if results_win and vim.api.nvim_win_is_valid(results_win) then
+    session.results_height = vim.api.nvim_win_get_height(results_win)
+  end
+
+  session.results_topline = 1
+  ensure_selection_visible(session)
 end
 
 function M.update_selection(session, previous_selection)
@@ -392,7 +476,10 @@ function M.update_selection(session, previous_selection)
   -- incremental path is an optimisation, not a separate source of truth.
   if not update_selection_only(session, previous_selection) then
     M.render(session)
+    return
   end
+
+  ensure_selection_visible(session)
 end
 
 function M.set_prompt_text(session, text)
