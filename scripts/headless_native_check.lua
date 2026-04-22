@@ -30,6 +30,15 @@ local function extmarks_with_detail(buffer, namespace, detail_key, detail_value)
   return matches
 end
 
+local function visible_line_range(window)
+  return vim.api.nvim_win_call(window, function()
+    return {
+      bottom = vim.fn.line("w$"),
+      top = vim.fn.line("w0"),
+    }
+  end)
+end
+
 assert(native.available)
 assert(native.version() == 1)
 
@@ -347,12 +356,18 @@ session = require("penguin")._session
 assert(session)
 assert(#session.matches == 100)
 assert(#vim.api.nvim_buf_get_lines(session.results_buf, 0, -1, false) == 100)
+assert(vim.api.nvim_win_get_height(session.results_win) < #session.matches)
 
 session:set_query("native peng")
 assert(#session.matches == 100)
 assert(session.matches[1].item.text:match("^NativePenguinBench"))
+local initial_view = visible_line_range(session.results_win)
+local jump = vim.api.nvim_win_get_height(session.results_win) + 5
 
-session:move_selection(75)
+assert(initial_view.top == 1)
+assert(initial_view.bottom < #session.matches)
+
+session:move_selection(jump)
 
 local large_selection_extmarks = extmarks_with_detail(
   session.results_buf,
@@ -360,11 +375,15 @@ local large_selection_extmarks = extmarks_with_detail(
   "line_hl_group",
   "Visual"
 )
+local scrolled_view = visible_line_range(session.results_win)
 
 assert(#large_selection_extmarks == 1)
-assert(large_selection_extmarks[1][2] == 75)
-assert(vim.api.nvim_buf_get_lines(session.results_buf, 75, 76, false)[1]:sub(1, 2) == "> ")
+assert(large_selection_extmarks[1][2] == jump)
+assert(vim.api.nvim_buf_get_lines(session.results_buf, jump, jump + 1, false)[1]:sub(1, 2) == "> ")
 assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]:sub(1, 2) == "  ")
+assert(scrolled_view.top > initial_view.top)
+assert(session.selection >= scrolled_view.top)
+assert(session.selection <= scrolled_view.bottom)
 
 require("penguin").open()
 

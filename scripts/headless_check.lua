@@ -31,6 +31,15 @@ local function extmarks_with_detail(buffer, namespace, detail_key, detail_value)
   return matches
 end
 
+local function visible_line_range(window)
+  return vim.api.nvim_win_call(window, function()
+    return {
+      bottom = vim.fn.line("w$"),
+      top = vim.fn.line("w0"),
+    }
+  end)
+end
+
 assert(matcher.backend_name() == "native-fuzzy-query")
 
 assert(matcher.score("ckh", "checkhealth"))
@@ -238,12 +247,17 @@ session = require("penguin")._session
 assert(session)
 assert(#session.matches == 100)
 assert(#vim.api.nvim_buf_get_lines(session.results_buf, 0, -1, false) == 100)
+assert(vim.api.nvim_win_get_height(session.results_win) < #session.matches)
 
 local initial_line = vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]
+local initial_view = visible_line_range(session.results_win)
+local jump = vim.api.nvim_win_get_height(session.results_win) + 5
 
 assert(initial_line:sub(1, 2) == "> ")
+assert(initial_view.top == 1)
+assert(initial_view.bottom < #session.matches)
 
-session:move_selection(50)
+session:move_selection(jump)
 
 local selection_extmarks_large = extmarks_with_detail(
   session.results_buf,
@@ -251,11 +265,15 @@ local selection_extmarks_large = extmarks_with_detail(
   "line_hl_group",
   "Visual"
 )
+local scrolled_view = visible_line_range(session.results_win)
 
 assert(#selection_extmarks_large == 1)
-assert(selection_extmarks_large[1][2] == 50)
-assert(vim.api.nvim_buf_get_lines(session.results_buf, 50, 51, false)[1]:sub(1, 2) == "> ")
+assert(selection_extmarks_large[1][2] == jump)
+assert(vim.api.nvim_buf_get_lines(session.results_buf, jump, jump + 1, false)[1]:sub(1, 2) == "> ")
 assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]:sub(1, 2) == "  ")
+assert(scrolled_view.top > initial_view.top)
+assert(session.selection >= scrolled_view.top)
+assert(session.selection <= scrolled_view.bottom)
 
 require("penguin").close()
 
