@@ -182,6 +182,194 @@ local function run_native_fuzzy_raw(native, entries, queries, iterations, limit)
   }
 end
 
+local run_matcher_filter
+local run_highlight_runtime
+
+local function run_query_group(native, entries, scenario_name, label, queries, iterations, ui_limit)
+  local fuzzy_query_count = #queries * iterations
+  local native_fuzzy_raw_all = run_native_fuzzy_raw(native, entries, queries, iterations, nil)
+  local native_fuzzy_raw_topk = run_native_fuzzy_raw(native, entries, queries, iterations, ui_limit)
+  local matcher_lua_all = run_matcher_filter(entries, queries, iterations, true, nil)
+  local matcher_native_all = run_matcher_filter(entries, queries, iterations, false, nil)
+  local matcher_lua_topk = run_matcher_filter(entries, queries, iterations, true, ui_limit)
+  local matcher_native_topk = run_matcher_filter(entries, queries, iterations, false, ui_limit)
+  local native_highlight_result = run_highlight_runtime(entries, queries, iterations, false)
+  local lua_baseline_highlight_result = run_highlight_runtime(entries, queries, iterations, true)
+  local raw_fuzzy_all_per_query_ms = native_fuzzy_raw_all.total_ms / fuzzy_query_count
+  local raw_fuzzy_topk_per_query_ms = native_fuzzy_raw_topk.total_ms / fuzzy_query_count
+  local matcher_lua_all_per_query_ms = matcher_lua_all.total_ms / fuzzy_query_count
+  local matcher_native_all_per_query_ms = matcher_native_all.total_ms / fuzzy_query_count
+  local matcher_lua_topk_per_query_ms = matcher_lua_topk.total_ms / fuzzy_query_count
+  local matcher_native_topk_per_query_ms = matcher_native_topk.total_ms / fuzzy_query_count
+  local native_highlight_per_query_ms = native_highlight_result.total_ms / fuzzy_query_count
+  local lua_baseline_highlight_per_query_ms =
+    lua_baseline_highlight_result.total_ms / fuzzy_query_count
+  local highlight_max_per_query_ms =
+    math.max(native_highlight_per_query_ms, lua_baseline_highlight_per_query_ms)
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=native_fuzzy_raw_all",
+      ("total_ms=%.3f"):format(native_fuzzy_raw_all.total_ms),
+      ("per_query_ms=%.6f"):format(raw_fuzzy_all_per_query_ms),
+      "matches=" .. native_fuzzy_raw_all.total_matches,
+      "score_sum=" .. native_fuzzy_raw_all.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=native_fuzzy_raw_topk12",
+      ("total_ms=%.3f"):format(native_fuzzy_raw_topk.total_ms),
+      ("per_query_ms=%.6f"):format(raw_fuzzy_topk_per_query_ms),
+      "matches=" .. native_fuzzy_raw_topk.total_matches,
+      "score_sum=" .. native_fuzzy_raw_topk.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "chart",
+      scenario_name .. "_" .. label .. "_native_fuzzy",
+      ("native_raw_all  |%s| %.6f ms/query"):format(
+        bar(raw_fuzzy_all_per_query_ms, math.max(raw_fuzzy_all_per_query_ms, raw_fuzzy_topk_per_query_ms), 32),
+        raw_fuzzy_all_per_query_ms
+      ),
+      ("native_raw_topk|%s| %.6f ms/query"):format(
+        bar(raw_fuzzy_topk_per_query_ms, math.max(raw_fuzzy_all_per_query_ms, raw_fuzzy_topk_per_query_ms), 32),
+        raw_fuzzy_topk_per_query_ms
+      ),
+      ("speedup=%.2fx"):format(raw_fuzzy_all_per_query_ms / raw_fuzzy_topk_per_query_ms),
+    }, "\n")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=matcher_lua_all",
+      ("total_ms=%.3f"):format(matcher_lua_all.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_lua_all_per_query_ms),
+      "matches=" .. matcher_lua_all.total_matches,
+      "score_sum=" .. matcher_lua_all.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=matcher_native_all",
+      ("total_ms=%.3f"):format(matcher_native_all.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_native_all_per_query_ms),
+      "matches=" .. matcher_native_all.total_matches,
+      "score_sum=" .. matcher_native_all.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=matcher_lua_topk12",
+      ("total_ms=%.3f"):format(matcher_lua_topk.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_lua_topk_per_query_ms),
+      "matches=" .. matcher_lua_topk.total_matches,
+      "score_sum=" .. matcher_lua_topk.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=matcher_native_topk12",
+      ("total_ms=%.3f"):format(matcher_native_topk.total_ms),
+      ("per_query_ms=%.6f"):format(matcher_native_topk_per_query_ms),
+      "matches=" .. matcher_native_topk.total_matches,
+      "score_sum=" .. matcher_native_topk.total_score,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "chart",
+      scenario_name .. "_" .. label .. "_matcher_all",
+      ("matcher_lua_all |%s| %.6f ms/query"):format(
+        bar(matcher_lua_all_per_query_ms, math.max(matcher_lua_all_per_query_ms, matcher_native_all_per_query_ms), 32),
+        matcher_lua_all_per_query_ms
+      ),
+      ("matcher_native  |%s| %.6f ms/query"):format(
+        bar(matcher_native_all_per_query_ms, math.max(matcher_lua_all_per_query_ms, matcher_native_all_per_query_ms), 32),
+        matcher_native_all_per_query_ms
+      ),
+      ("speedup=%.2fx"):format(matcher_lua_all_per_query_ms / matcher_native_all_per_query_ms),
+    }, "\n")
+  )
+
+  print(
+    table.concat({
+      "chart",
+      scenario_name .. "_" .. label .. "_matcher_topk",
+      ("matcher_lua_topk |%s| %.6f ms/query"):format(
+        bar(matcher_lua_topk_per_query_ms, math.max(matcher_lua_topk_per_query_ms, matcher_native_topk_per_query_ms), 32),
+        matcher_lua_topk_per_query_ms
+      ),
+      ("matcher_native  |%s| %.6f ms/query"):format(
+        bar(matcher_native_topk_per_query_ms, math.max(matcher_lua_topk_per_query_ms, matcher_native_topk_per_query_ms), 32),
+        matcher_native_topk_per_query_ms
+      ),
+      ("speedup=%.2fx"):format(matcher_lua_topk_per_query_ms / matcher_native_topk_per_query_ms),
+    }, "\n")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=native_highlights_runtime",
+      ("total_ms=%.3f"):format(native_highlight_result.total_ms),
+      ("per_query_ms=%.6f"):format(native_highlight_per_query_ms),
+      "matches=" .. native_highlight_result.total_matches,
+      "spans=" .. native_highlight_result.total_spans,
+      "span_bytes=" .. native_highlight_result.total_span_bytes,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "scenario=" .. scenario_name,
+      "group=" .. label,
+      "backend=lua_highlights_baseline_runtime",
+      ("total_ms=%.3f"):format(lua_baseline_highlight_result.total_ms),
+      ("per_query_ms=%.6f"):format(lua_baseline_highlight_per_query_ms),
+      "matches=" .. lua_baseline_highlight_result.total_matches,
+      "spans=" .. lua_baseline_highlight_result.total_spans,
+      "span_bytes=" .. lua_baseline_highlight_result.total_span_bytes,
+    }, " ")
+  )
+
+  print(
+    table.concat({
+      "chart",
+      scenario_name .. "_" .. label .. "_highlights",
+      ("native_highlights     |%s| %.6f ms/query"):format(
+        bar(native_highlight_per_query_ms, highlight_max_per_query_ms, 32),
+        native_highlight_per_query_ms
+      ),
+      ("lua_highlights_baseline|%s| %.6f ms/query"):format(
+        bar(lua_baseline_highlight_per_query_ms, highlight_max_per_query_ms, 32),
+        lua_baseline_highlight_per_query_ms
+      ),
+      ("speedup=%.2fx"):format(lua_baseline_highlight_per_query_ms / native_highlight_per_query_ms),
+    }, "\n")
+  )
+end
+
 local root = repo_root()
 
 vim.opt.runtimepath:append(root)
@@ -201,7 +389,7 @@ local function configure_matcher(benchmark_only_lua)
   })
 end
 
-local function run_matcher_filter(entries, queries, iterations, benchmark_only_lua, limit)
+run_matcher_filter = function(entries, queries, iterations, benchmark_only_lua, limit)
   local native_matcher = benchmark_only_lua and nil or native.new_exact_matcher(entries)
   local start_ms = hrtime_ms()
   local total_matches = 0
@@ -230,7 +418,7 @@ local function run_matcher_filter(entries, queries, iterations, benchmark_only_l
   }
 end
 
-local function run_highlight_runtime(entries, queries, iterations, use_lua_baseline)
+run_highlight_runtime = function(entries, queries, iterations, use_lua_baseline)
   local native_matcher = native.new_exact_matcher(entries)
   local start_ms = hrtime_ms()
   local total_matches = 0
@@ -278,6 +466,8 @@ local scenarios = {
     iterations = 250,
     exact_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin" },
     fuzzy_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "gitco", "health mason", "zz", "30" },
+    common_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin", "gitco", "mason" },
+    rare_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "health mason", "zz", "30", "++p log" },
   },
   {
     name = "medium",
@@ -285,6 +475,8 @@ local scenarios = {
     iterations = 75,
     exact_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin" },
     fuzzy_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "gitco", "health mason", "zz", "30" },
+    common_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin", "gitco", "mason" },
+    rare_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "health mason", "zz", "30", "++p log" },
   },
   {
     name = "large",
@@ -292,6 +484,8 @@ local scenarios = {
     iterations = 10,
     exact_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin" },
     fuzzy_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "gitco", "health mason", "zz", "30" },
+    common_queries = { "checkhealth", "split", "write", "number", "session.lua", "penguin", "gitco", "mason" },
+    rare_queries = { "spl bot", "set nu", "peng sel", "nvim/lua", "health mason", "zz", "30", "++p log" },
   },
 }
 
@@ -301,23 +495,10 @@ for _, scenario in ipairs(scenarios) do
   local entries = build_history(scenario.size)
   local lua_result = run_lua_exact(entries, scenario.exact_queries, scenario.iterations)
   local native_result = run_native_exact(native, entries, scenario.exact_queries, scenario.iterations)
-  local native_fuzzy_raw_all = run_native_fuzzy_raw(native, entries, scenario.fuzzy_queries, scenario.iterations, nil)
-  local native_fuzzy_raw_topk = run_native_fuzzy_raw(native, entries, scenario.fuzzy_queries, scenario.iterations, ui_limit)
-  local matcher_lua_all = run_matcher_filter(entries, scenario.fuzzy_queries, scenario.iterations, true, nil)
-  local matcher_native_all = run_matcher_filter(entries, scenario.fuzzy_queries, scenario.iterations, false, nil)
-  local matcher_lua_topk = run_matcher_filter(entries, scenario.fuzzy_queries, scenario.iterations, true, ui_limit)
-  local matcher_native_topk = run_matcher_filter(entries, scenario.fuzzy_queries, scenario.iterations, false, ui_limit)
   local exact_query_count = #scenario.exact_queries * scenario.iterations
-  local fuzzy_query_count = #scenario.fuzzy_queries * scenario.iterations
   local lua_per_query_ms = lua_result.total_ms / exact_query_count
   local native_per_query_ms = native_result.total_ms / exact_query_count
   local max_per_query_ms = math.max(lua_per_query_ms, native_per_query_ms)
-  local raw_fuzzy_all_per_query_ms = native_fuzzy_raw_all.total_ms / fuzzy_query_count
-  local raw_fuzzy_topk_per_query_ms = native_fuzzy_raw_topk.total_ms / fuzzy_query_count
-  local matcher_lua_all_per_query_ms = matcher_lua_all.total_ms / fuzzy_query_count
-  local matcher_native_all_per_query_ms = matcher_native_all.total_ms / fuzzy_query_count
-  local matcher_lua_topk_per_query_ms = matcher_lua_topk.total_ms / fuzzy_query_count
-  local matcher_native_topk_per_query_ms = matcher_native_topk.total_ms / fuzzy_query_count
 
   print(
     table.concat({
@@ -353,185 +534,9 @@ for _, scenario in ipairs(scenarios) do
     }, "\n")
   )
 
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=native_fuzzy_raw_all",
-      ("total_ms=%.3f"):format(native_fuzzy_raw_all.total_ms),
-      ("per_query_ms=%.6f"):format(raw_fuzzy_all_per_query_ms),
-      "matches=" .. native_fuzzy_raw_all.total_matches,
-      "score_sum=" .. native_fuzzy_raw_all.total_score,
-    }, " ")
-  )
-
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=native_fuzzy_raw_topk12",
-      ("total_ms=%.3f"):format(native_fuzzy_raw_topk.total_ms),
-      ("per_query_ms=%.6f"):format(raw_fuzzy_topk_per_query_ms),
-      "matches=" .. native_fuzzy_raw_topk.total_matches,
-      "score_sum=" .. native_fuzzy_raw_topk.total_score,
-    }, " ")
-  )
-
-  print(
-    table.concat({
-      "chart",
-      scenario.name .. "_native_fuzzy",
-      ("native_raw_all  |%s| %.6f ms/query"):format(
-        bar(raw_fuzzy_all_per_query_ms, math.max(raw_fuzzy_all_per_query_ms, raw_fuzzy_topk_per_query_ms), 32),
-        raw_fuzzy_all_per_query_ms
-      ),
-      ("native_raw_topk|%s| %.6f ms/query"):format(
-        bar(raw_fuzzy_topk_per_query_ms, math.max(raw_fuzzy_all_per_query_ms, raw_fuzzy_topk_per_query_ms), 32),
-        raw_fuzzy_topk_per_query_ms
-      ),
-      ("speedup=%.2fx"):format(raw_fuzzy_all_per_query_ms / raw_fuzzy_topk_per_query_ms),
-    }, "\n")
-  )
-
-  local native_highlight_result = run_highlight_runtime(
-    entries,
-    scenario.fuzzy_queries,
-    scenario.iterations,
-    false
-  )
-  local lua_baseline_highlight_result = run_highlight_runtime(
-    entries,
-    scenario.fuzzy_queries,
-    scenario.iterations,
-    true
-  )
-  local native_highlight_per_query_ms = native_highlight_result.total_ms / fuzzy_query_count
-  local lua_baseline_highlight_per_query_ms =
-    lua_baseline_highlight_result.total_ms / fuzzy_query_count
-  local highlight_max_per_query_ms =
-    math.max(native_highlight_per_query_ms, lua_baseline_highlight_per_query_ms)
-
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=matcher_lua_all",
-      ("total_ms=%.3f"):format(matcher_lua_all.total_ms),
-      ("per_query_ms=%.6f"):format(matcher_lua_all_per_query_ms),
-      "matches=" .. matcher_lua_all.total_matches,
-      "score_sum=" .. matcher_lua_all.total_score,
-    }, " ")
-  )
-
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=matcher_native_all",
-      ("total_ms=%.3f"):format(matcher_native_all.total_ms),
-      ("per_query_ms=%.6f"):format(matcher_native_all_per_query_ms),
-      "matches=" .. matcher_native_all.total_matches,
-      "score_sum=" .. matcher_native_all.total_score,
-    }, " ")
-  )
-
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=matcher_lua_topk12",
-      ("total_ms=%.3f"):format(matcher_lua_topk.total_ms),
-      ("per_query_ms=%.6f"):format(matcher_lua_topk_per_query_ms),
-      "matches=" .. matcher_lua_topk.total_matches,
-      "score_sum=" .. matcher_lua_topk.total_score,
-    }, " ")
-  )
-
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=matcher_native_topk12",
-      ("total_ms=%.3f"):format(matcher_native_topk.total_ms),
-      ("per_query_ms=%.6f"):format(matcher_native_topk_per_query_ms),
-      "matches=" .. matcher_native_topk.total_matches,
-      "score_sum=" .. matcher_native_topk.total_score,
-    }, " ")
-  )
-
-  print(
-    table.concat({
-      "chart",
-      scenario.name .. "_matcher_all",
-      ("matcher_lua_all |%s| %.6f ms/query"):format(
-        bar(matcher_lua_all_per_query_ms, math.max(matcher_lua_all_per_query_ms, matcher_native_all_per_query_ms), 32),
-        matcher_lua_all_per_query_ms
-      ),
-      ("matcher_native  |%s| %.6f ms/query"):format(
-        bar(matcher_native_all_per_query_ms, math.max(matcher_lua_all_per_query_ms, matcher_native_all_per_query_ms), 32),
-        matcher_native_all_per_query_ms
-      ),
-      ("speedup=%.2fx"):format(matcher_lua_all_per_query_ms / matcher_native_all_per_query_ms),
-    }, "\n")
-  )
-
-  print(
-    table.concat({
-      "chart",
-      scenario.name .. "_matcher_topk",
-      ("matcher_lua_topk |%s| %.6f ms/query"):format(
-        bar(matcher_lua_topk_per_query_ms, math.max(matcher_lua_topk_per_query_ms, matcher_native_topk_per_query_ms), 32),
-        matcher_lua_topk_per_query_ms
-      ),
-      ("matcher_native  |%s| %.6f ms/query"):format(
-        bar(matcher_native_topk_per_query_ms, math.max(matcher_lua_topk_per_query_ms, matcher_native_topk_per_query_ms), 32),
-        matcher_native_topk_per_query_ms
-      ),
-      ("speedup=%.2fx"):format(matcher_lua_topk_per_query_ms / matcher_native_topk_per_query_ms),
-    }, "\n")
-  )
-
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=native_highlights_runtime",
-      ("total_ms=%.3f"):format(native_highlight_result.total_ms),
-      ("per_query_ms=%.6f"):format(native_highlight_per_query_ms),
-      "matches=" .. native_highlight_result.total_matches,
-      "spans=" .. native_highlight_result.total_spans,
-      "span_bytes=" .. native_highlight_result.total_span_bytes,
-    }, " ")
-  )
-
-  print(
-    table.concat({
-      "scenario=" .. scenario.name,
-      "size=" .. scenario.size,
-      "backend=lua_highlights_baseline_runtime",
-      ("total_ms=%.3f"):format(lua_baseline_highlight_result.total_ms),
-      ("per_query_ms=%.6f"):format(lua_baseline_highlight_per_query_ms),
-      "matches=" .. lua_baseline_highlight_result.total_matches,
-      "spans=" .. lua_baseline_highlight_result.total_spans,
-      "span_bytes=" .. lua_baseline_highlight_result.total_span_bytes,
-    }, " ")
-  )
-
-  print(
-    table.concat({
-      "chart",
-      scenario.name .. "_highlights",
-      ("native_highlights     |%s| %.6f ms/query"):format(
-        bar(native_highlight_per_query_ms, highlight_max_per_query_ms, 32),
-        native_highlight_per_query_ms
-      ),
-      ("lua_highlights_baseline|%s| %.6f ms/query"):format(
-        bar(lua_baseline_highlight_per_query_ms, highlight_max_per_query_ms, 32),
-        lua_baseline_highlight_per_query_ms
-      ),
-      ("speedup=%.2fx"):format(lua_baseline_highlight_per_query_ms / native_highlight_per_query_ms),
-    }, "\n")
-  )
+  run_query_group(native, entries, scenario.name, "mixed", scenario.fuzzy_queries, scenario.iterations, ui_limit)
+  run_query_group(native, entries, scenario.name, "common", scenario.common_queries, scenario.iterations, ui_limit)
+  run_query_group(native, entries, scenario.name, "rare", scenario.rare_queries, scenario.iterations, ui_limit)
 end
 
 vim.cmd("qa!")
