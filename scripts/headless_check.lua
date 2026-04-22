@@ -231,6 +231,12 @@ completion._complete = function(query, kind)
     query = query,
   }
 
+  if kind == "command" and query == "check" then
+    return {
+      "checkhealth",
+    }
+  end
+
   if kind == "cmdline" and query == "checkhealth " then
     return {
       "vim.deprecated",
@@ -355,6 +361,90 @@ session:set_query("cd ../")
 assert(#completion_calls == 1)
 assert(completion_calls[1].kind == "cmdline")
 assert(completion_calls[1].query == "cd ../")
+
+completion._complete = original_complete
+require("penguin").close()
+
+local command_completion_calls = {}
+
+completion._complete = function(query, kind)
+  command_completion_calls[#command_completion_calls + 1] = {
+    kind = kind,
+    query = query,
+  }
+
+  if kind ~= "command" then
+    return {}
+  end
+
+  if query == "Neogit" then
+    return {
+      "Neogit",
+      "NeogitDiff",
+      "NeogitDiffMain",
+      "NeogitLog",
+    }
+  end
+
+  if query == "Neogitdiff" then
+    return {}
+  end
+
+  if query == "" then
+    return {
+      "Neogit",
+      "NeogitDiff",
+      "NeogitDiffMain",
+      "NeogitLog",
+    }
+  end
+
+  return {}
+end
+
+vim.fn.histadd(":", "NeogitDiffMain")
+
+require("penguin").setup({})
+require("penguin").open()
+session = require("penguin")._session
+assert(session)
+
+session:set_query("Neogit")
+
+local saw_neogit_diff_completion = false
+
+for _, match in ipairs(session.matches) do
+  if match.item.text == "NeogitDiff" and match.item.source == "completion" then
+    saw_neogit_diff_completion = true
+    break
+  end
+end
+
+assert(saw_neogit_diff_completion)
+
+command_completion_calls = {}
+session:set_query("Neogitdiff")
+
+local saw_neogit_diff_after_narrowing = false
+local saw_neogit_diff_main_history = false
+
+for _, match in ipairs(session.matches) do
+  if match.item.text == "NeogitDiff" and match.item.source == "completion" then
+    saw_neogit_diff_after_narrowing = true
+  end
+
+  if match.item.text == "NeogitDiffMain" and match.item.source == "history" then
+    saw_neogit_diff_main_history = true
+  end
+end
+
+assert(saw_neogit_diff_after_narrowing)
+assert(saw_neogit_diff_main_history)
+assert(#command_completion_calls == 2)
+assert(command_completion_calls[1].kind == "command")
+assert(command_completion_calls[1].query == "Neogitdiff")
+assert(command_completion_calls[2].kind == "command")
+assert(command_completion_calls[2].query == "")
 
 completion._complete = original_complete
 require("penguin").close()
