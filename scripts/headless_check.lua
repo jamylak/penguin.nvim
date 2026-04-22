@@ -183,6 +183,7 @@ assert(#session.matches >= 1)
 assert(vim.fn.maparg("<C-n>", "i", false, true).lhs == "<C-N>")
 assert(vim.fn.maparg("<C-p>", "i", false, true).lhs == "<C-P>")
 assert(vim.fn.maparg("<C-w>", "i", false, true).lhs == "<C-W>")
+assert(vim.fn.maparg("<Tab>", "i", false, true).lhs == "<Tab>")
 
 require("penguin").close()
 

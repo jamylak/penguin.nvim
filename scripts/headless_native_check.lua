@@ -233,6 +233,7 @@ for _, match in ipairs(session.matches) do
 end
 
 assert(saw_completion_match)
+assert(vim.fn.maparg("<Tab>", "i", false, true).lhs == "<Tab>")
 
 require("penguin").close()
 

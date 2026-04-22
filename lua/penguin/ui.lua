@@ -260,6 +260,10 @@ function M.open(session)
     session:complete_selection()
   end, map_options)
 
+  vim.keymap.set({ "i", "n" }, "<Tab>", function()
+    session:complete_selection()
+  end, map_options)
+
   M.focus_prompt(session)
 end
 
