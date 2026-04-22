@@ -224,7 +224,8 @@ assert(#moved_match_extmarks >= 2)
 assert(#moved_selection_extmarks == 1)
 assert(moved_selection_extmarks[1][2] == 1)
 assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]:sub(1, 2) == "  ")
-assert(vim.api.nvim_buf_get_lines(session.results_buf, 1, 2, false)[1]:sub(1, 2) == "> ")
+assert(moved_selection_extmarks[1][4].virt_text[1][1] == ">")
+assert(vim.api.nvim_buf_get_lines(session.results_buf, 1, 2, false)[1]:sub(1, 2) == "  ")
 
 local saw_row_zero_highlight = false
 local saw_row_one_highlight = false
@@ -379,7 +380,8 @@ local scrolled_view = visible_line_range(session.results_win)
 
 assert(#large_selection_extmarks == 1)
 assert(large_selection_extmarks[1][2] == jump)
-assert(vim.api.nvim_buf_get_lines(session.results_buf, jump, jump + 1, false)[1]:sub(1, 2) == "> ")
+assert(large_selection_extmarks[1][4].virt_text[1][1] == ">")
+assert(vim.api.nvim_buf_get_lines(session.results_buf, jump, jump + 1, false)[1]:sub(1, 2) == "  ")
 assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]:sub(1, 2) == "  ")
 assert(scrolled_view.top > initial_view.top)
 assert(session.selection >= scrolled_view.top)

@@ -253,7 +253,7 @@ local initial_line = vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false
 local initial_view = visible_line_range(session.results_win)
 local jump = vim.api.nvim_win_get_height(session.results_win) + 5
 
-assert(initial_line:sub(1, 2) == "> ")
+assert(initial_line:sub(1, 2) == "  ")
 assert(initial_view.top == 1)
 assert(initial_view.bottom < #session.matches)
 
@@ -269,7 +269,8 @@ local scrolled_view = visible_line_range(session.results_win)
 
 assert(#selection_extmarks_large == 1)
 assert(selection_extmarks_large[1][2] == jump)
-assert(vim.api.nvim_buf_get_lines(session.results_buf, jump, jump + 1, false)[1]:sub(1, 2) == "> ")
+assert(selection_extmarks_large[1][4].virt_text[1][1] == ">")
+assert(vim.api.nvim_buf_get_lines(session.results_buf, jump, jump + 1, false)[1]:sub(1, 2) == "  ")
 assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]:sub(1, 2) == "  ")
 assert(scrolled_view.top > initial_view.top)
 assert(session.selection >= scrolled_view.top)

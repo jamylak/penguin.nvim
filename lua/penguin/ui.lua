@@ -82,10 +82,15 @@ local function add_match_highlight(buffer, row, start_col, end_col, line_length)
   })
 end
 
-local function add_selection_highlight(buffer, row)
+local function add_selection_highlight(buffer, row, id)
   return vim.api.nvim_buf_set_extmark(buffer, namespace, row, 0, {
+    id = id,
     line_hl_group = "Visual",
     priority = selection_highlight_priority,
+    virt_text = {
+      { ">", "Visual" },
+    },
+    virt_text_pos = "overlay",
   })
 end
 
@@ -103,8 +108,7 @@ local function render_results(session)
 
   if #session.matches > 0 then
     for index, match in ipairs(session.matches) do
-      local marker = index == session.selection and ">" or " "
-      lines[index] = string.format("%s %s", marker, match.item.text)
+      lines[index] = string.format("  %s", match.item.text)
     end
   elseif #session.entries == 0 then
     lines = { "  no command history yet" }
@@ -115,6 +119,7 @@ local function render_results(session)
   vim.bo[session.results_buf].modifiable = true
   vim.api.nvim_buf_set_lines(session.results_buf, 0, -1, false, lines)
   vim.bo[session.results_buf].modifiable = false
+  session.results_line_count = #lines
 
   vim.api.nvim_buf_clear_namespace(session.results_buf, namespace, 0, -1)
 
@@ -155,26 +160,21 @@ end
 ---cached window geometry and cached topline state so ordinary in-viewport
 ---moves still pay only the incremental row-rewrite cost.
 local function ensure_selection_visible(session)
-  local buffer = session.results_buf
   local window = session.results_win
   local selection = session.selection
+  local total_lines = session.results_line_count or 0
+  local height = session.results_height or 0
 
-  if not buffer or not window then
+  if not window then
     return
   end
 
-  if not vim.api.nvim_buf_is_valid(buffer) or not vim.api.nvim_win_is_valid(window) then
+  if selection <= 0 or total_lines <= 0 or height <= 0 then
     return
   end
 
-  if selection <= 0 then
-    return
-  end
-
-  local total_lines = vim.api.nvim_buf_line_count(buffer)
-  local height = session.results_height
-
-  if total_lines <= 0 or height <= 0 then
+  if height >= total_lines then
+    session.results_topline = 1
     return
   end
 
@@ -206,43 +206,6 @@ local function ensure_selection_visible(session)
   vim.api.nvim_win_set_cursor(window, { selection, 0 })
 end
 
-local function render_result_line(match, selected)
-  -- Each rendered result line is just a stable item text plus a 1-character
-  -- selection marker. That makes selection movement cheap: the "old selected"
-  -- row and the "new selected" row can be rewritten in place without touching
-  -- the other visible rows.
-  local marker = selected and ">" or " "
-  return string.format("%s %s", marker, match.item.text)
-end
-
-local function update_selection_line(buffer, row, match, selected)
-  if not match or row < 0 then
-    return
-  end
-
-  vim.api.nvim_buf_set_lines(buffer, row, row + 1, false, {
-    render_result_line(match, selected),
-  })
-end
-
-local function refresh_match_highlights_for_row(session, row, match)
-  local line
-
-  if not session.config.ui.match_highlights or not match then
-    return
-  end
-
-  -- `nvim_buf_set_lines()` replaces the row contents and drops extmarks that
-  -- lived on that row. The incremental scroll path rewrites exactly two rows,
-  -- so this helper restores the `PenguinMatch` extmarks for those rewritten
-  -- rows instead of forcing a full results rerender.
-  line = vim.api.nvim_buf_get_lines(session.results_buf, row, row + 1, false)[1] or ""
-
-  for _, range in ipairs(match_ranges_for_render(session, match)) do
-    add_match_highlight(session.results_buf, row, 2 + range[1], 2 + range[2], #line)
-  end
-end
-
 local function update_selection_only(session, previous_selection)
   local buffer = session.results_buf
 
@@ -258,65 +221,25 @@ local function update_selection_only(session, previous_selection)
     return true
   end
 
-  -- Visual shape of the optimisation:
-  --
-  --   before scroll:
-  --     16  "  write"
-  --     17  "> set number"
-  --     18  "  set relativenumber"
-  --
-  --   after one <Down>:
-  --     16  "  write"
-  --     17  "  set number"
-  --     18  "> set relativenumber"
-  --
-  -- Only two lines changed. The other 98 visible rows in a large result window
-  -- are byte-for-byte identical, and their match highlights are identical too.
-  -- So instead of calling the full render path, we:
-  --   1. rewrite the previously selected row without `>`
-  --   2. rewrite the newly selected row with `>`
-  --   3. move the selection extmark
-  --
-  -- That is faster because it avoids:
-  --   - rebuilding every rendered line
-  --   - clearing the whole namespace
-  --   - re-adding all match-highlight extmarks
-  --
-  -- Focused 100-row benchmark, same query/result set:
-  --   no fix / full rerender:        0.324450 ms/step
-  --   broken incremental version:    0.053381 ms/step
-  --   fixed incremental version:     0.063696 ms/step
-  --   fixed speedup vs no fix:       ~5.1x
-  vim.bo[buffer].modifiable = true
-
-  if previous_selection and previous_selection > 0 and previous_selection <= #session.matches then
-    local previous_row = previous_selection - 1
-    local previous_match = session.matches[previous_selection]
-
-    update_selection_line(buffer, previous_row, previous_match, false)
-    -- This row-level highlight refresh is the line that fixes the visual
-    -- regression where moving selection erased match highlights on the row that
-    -- was just rewritten.
-    refresh_match_highlights_for_row(session, previous_row, previous_match)
+  -- The rendered lines stay byte-for-byte stable as `"  text"`. Selection
+  -- movement only repositions a single extmark that draws both the line
+  -- highlight and the overlaid `>` marker, so match-highlight extmarks never
+  -- need to be rebuilt on ordinary cursor motion. That is dramatically faster
+  -- than rewriting two buffer rows on every keypress because the hot path no
+  -- longer mutates buffer text or replays row-level match highlights.
+  if previous_selection == session.selection and session.selection_extmark_id then
+    return true
   end
 
   if session.selection > 0 and session.selection <= #session.matches then
-    local current_row = session.selection - 1
-    local current_match = session.matches[session.selection]
-
-    update_selection_line(buffer, current_row, current_match, true)
-    -- Reapply highlights for the newly selected rewritten row too.
-    refresh_match_highlights_for_row(session, current_row, current_match)
-  end
-
-  vim.bo[buffer].modifiable = false
-
-  if session.selection_extmark_id then
+    session.selection_extmark_id = add_selection_highlight(
+      buffer,
+      session.selection - 1,
+      session.selection_extmark_id
+    )
+  elseif session.selection_extmark_id then
     vim.api.nvim_buf_del_extmark(buffer, namespace, session.selection_extmark_id)
-  end
-
-  if session.selection > 0 and session.selection <= #session.matches then
-    session.selection_extmark_id = add_selection_highlight(buffer, session.selection - 1)
+    session.selection_extmark_id = nil
   else
     session.selection_extmark_id = nil
   end
@@ -472,10 +395,16 @@ function M.render(session)
 end
 
 function M.update_selection(session, previous_selection)
+  local results_win = session.results_win
+
   -- Fall back to the full render path if the buffer is missing/invalid. The
   -- incremental path is an optimisation, not a separate source of truth.
   if not update_selection_only(session, previous_selection) then
     M.render(session)
+    return
+  end
+
+  if not results_win or not vim.api.nvim_win_is_valid(results_win) then
     return
   end
 
