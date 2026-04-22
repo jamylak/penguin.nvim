@@ -174,12 +174,6 @@ function Session:refresh()
 			return
 		end
 
-		if debounce_ms == 0 then
-			set_completion_items(self, completion.collect(self.query, self.completion_cache))
-			self:update_matches()
-			return
-		end
-
 		vim.defer_fn(function()
 			-- Multiple timers may be queued while the user keeps typing. Only the
 			-- newest generation is allowed to fetch/update, which prevents repeated

@@ -394,6 +394,50 @@ assert(#completion_calls == 1)
 completion._complete = original_complete
 require("penguin").close()
 
+local zero_debounce_calls = {}
+
+completion._complete = function(query, kind)
+  zero_debounce_calls[#zero_debounce_calls + 1] = {
+    kind = kind,
+    query = query,
+  }
+
+  if kind == "cmdline" and query == "che " then
+    return {
+      "vim.health",
+    }
+  end
+
+  return {}
+end
+
+require("penguin").setup({
+  completion = {
+    debounce_ms = 0,
+    command_strategies = {
+      checkhealth = "prefix_cached_deferred",
+    },
+  },
+})
+
+require("penguin").open()
+session = require("penguin")._session
+assert(session)
+
+session:set_query("che ")
+assert(#zero_debounce_calls == 0)
+
+vim.wait(1000, function()
+  return #zero_debounce_calls == 1
+end)
+
+assert(#zero_debounce_calls == 1)
+assert(zero_debounce_calls[1].kind == "cmdline")
+assert(zero_debounce_calls[1].query == "che ")
+
+completion._complete = original_complete
+require("penguin").close()
+
 local path_root = vim.fn.tempname()
 local path_child = vim.fs.joinpath(path_root, "penguinpathchild")
 local path_items
