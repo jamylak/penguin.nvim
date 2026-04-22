@@ -2,6 +2,27 @@
 
 Known speed debts to remove as the native fuzzy path matures:
 
+- Highlight-span generation still looks like live optimisation headroom.
+  Recent benchmark snapshot:
+  `large mixed native_highlights_runtime=0.299067 ms/query`
+  vs `large mixed matcher_native_topk12=0.282377 ms/query`.
+  That means span generation is now in the same rough cost range as the whole
+  native top-k match step for a realistic UI-sized result set.
+  Target direction: reduce exact-span scans and fallback subsequence span work,
+  especially for rows that are already in the kept top-k set.
+
+- Top-k maintenance still looks worth revisiting.
+  The current path keeps a bounded result set during the scan, but replacement
+  still calls `penguin_find_worst_result_index()` after each winning overwrite,
+  and we still finish with a final sort of the kept set.
+  Recent benchmark snapshot:
+  `large common native_fuzzy_raw_all=5.162296 ms/query`
+  vs `large common native_fuzzy_raw_topk12=0.226362 ms/query`.
+  The gap says top-k limiting is a huge win already, but also that the kept-set
+  maintenance policy is now important enough to benchmark more aggressively.
+  Target direction: benchmark tighter worst-entry tracking or a heap / ordered
+  kept-set approach against the current replace-then-rescan baseline.
+
 - Multi-token native scoring currently rescans the same candidate once per token.
   This is a baseline shape, not the likely fastest end state.
   Target direction: one candidate scan that advances all token state together.
