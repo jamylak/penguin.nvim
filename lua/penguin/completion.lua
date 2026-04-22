@@ -2,11 +2,60 @@ local M = {}
 local command_strategies = {
   checkhealth = "prefix_cached_deferred",
 }
+-- Maps unique typed command prefixes to the configured strategy key they should
+-- inherit.
+--
+-- Example with:
+--   command_strategies = {
+--     checkhealth = "prefix_cached_deferred",
+--   }
+--
+-- the rebuilt lookup table becomes:
+--   {
+--     che = "checkhealth",
+--     chec = "checkhealth",
+--     check = "checkhealth",
+--     checkh = "checkhealth",
+--     checkhe = "checkhealth",
+--     checkhea = "checkhealth",
+--     checkheal = "checkhealth",
+--     checkhealt = "checkhealth",
+--     checkhealth = "checkhealth",
+--   }
+--
+-- Ambiguous prefixes are stored as `false`, which makes them fall back to the
+-- original typed command name instead of inheriting a strategy.
+local strategy_command_lookup = {}
 local all_commands_cache_key = "__penguin_all_commands__"
 local command_fuzzy_fallback_min_query_length = 4
 
 M._complete = function(query, kind)
   return vim.fn.getcompletion(query, kind)
+end
+
+---Build the abbreviation lookup derived from `command_strategies`.
+---
+---This keeps the hot lookup path in `strategy_command_name()` table-based.
+---Whenever configuration changes the set of slow-command strategies, regenerate
+---all unique prefixes once up front instead of scanning every configured
+---command on each query refresh.
+local function build_strategy_command_lookup()
+  local lookup = {}
+
+  for command in pairs(command_strategies) do
+    for length = 1, #command do
+      local prefix = command:sub(1, length)
+      local existing = lookup[prefix]
+
+      if existing == nil then
+        lookup[prefix] = command
+      elseif existing ~= command then
+        lookup[prefix] = false
+      end
+    end
+  end
+
+  strategy_command_lookup = lookup
 end
 
 function M.configure(config)
@@ -25,13 +74,13 @@ function M.configure(config)
         command_strategies[normalized_command] = normalized_strategy
       end
     end
-
-    return
+  else
+    command_strategies = {
+      checkhealth = "prefix_cached_deferred",
+    }
   end
 
-  command_strategies = {
-    checkhealth = "prefix_cached_deferred",
-  }
+  build_strategy_command_lookup()
 end
 
 ---@param query string
@@ -79,6 +128,23 @@ end
 ---the `checkhealth = "prefix_cached_deferred"` setting will not apply until
 ---the full command name is typed.
 ---
+---Example:
+---  typed command name = `che`
+---  strategy_command_lookup = {
+---    che = "checkhealth",
+---    chec = "checkhealth",
+---    ....
+---    checkhealth = "checkhealth",
+---  }
+---
+---  strategy_command_name("che")         -> "checkhealth"
+---  strategy_command_name("checkhealth") -> "checkhealth"
+---  strategy_command_name("zzz")         -> "zzz"
+---
+---This function reads the precomputed `strategy_command_lookup` table built by
+---`build_strategy_command_lookup()`, so the runtime path stays a single table
+---lookup instead of scanning every configured strategy command each time.
+---
 ---@param name string Typed Ex command name with no arguments, e.g. `che`.
 ---@return string Strategy lookup key, either the exact configured command name
 ---or the original input when no unique configured match exists.
@@ -89,37 +155,13 @@ local function strategy_command_name(name)
     return ""
   end
 
-  if command_strategies[normalized] ~= nil then
-    return normalized
+  local resolved = strategy_command_lookup[normalized]
+
+  if type(resolved) == "string" then
+    return resolved
   end
 
-  local matched = nil
-
-  -- `command_strategies` is a map like:
-  --   {
-  --     checkhealth = "prefix_cached_deferred",
-  --     slowcmd = "deferred",
-  --   }
-  --
-  -- Iterate over those configured command names and see whether the typed
-  -- command is a prefix of exactly one of them.
-  for candidate in pairs(command_strategies) do
-    -- Ex commands accept unique abbreviations, so `:che` executes
-    -- `:checkhealth`. Strategy lookup needs to mirror that behavior or slow
-    -- commands fall back to live per-keystroke completion until the full name
-    -- is typed out.
-    if vim.startswith(candidate, normalized) then
-      -- Only inherit the strategy when the abbreviation is unambiguous.
-      -- Ambiguous prefixes should behave like a normal live command probe.
-      if matched ~= nil then
-        return normalized
-      end
-
-      matched = candidate
-    end
-  end
-
-  return matched or normalized
+  return normalized
 end
 
 ---@param query string|nil
