@@ -172,6 +172,73 @@ session.matches = {
       recency = 0,
       source = "history",
       source_rank = 1,
+      text = "vertical botright split",
+    },
+    match_ranges = {
+      { 9, 12 },
+      { 18, 21 },
+    },
+    score = 300,
+  },
+  {
+    item = {
+      recency = 1,
+      source = "history",
+      source_rank = 1,
+      text = "set number relativenumber",
+    },
+    match_ranges = {
+      { 4, 10 },
+    },
+    score = 250,
+  },
+}
+session.selection = 1
+session.query = "controlled highlight move"
+ui.render(session)
+
+local initial_match_extmarks = extmarks_with_detail(session.results_buf, ui.namespace, "hl_group", "PenguinMatch")
+
+assert(#initial_match_extmarks >= 2)
+
+session:move_selection(1)
+
+local moved_match_extmarks = extmarks_with_detail(session.results_buf, ui.namespace, "hl_group", "PenguinMatch")
+local moved_selection_extmarks = extmarks_with_detail(
+  session.results_buf,
+  ui.namespace,
+  "line_hl_group",
+  "Visual"
+)
+
+assert(#moved_match_extmarks >= 2)
+assert(#moved_selection_extmarks == 1)
+assert(moved_selection_extmarks[1][2] == 1)
+assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]:sub(1, 2) == "  ")
+assert(vim.api.nvim_buf_get_lines(session.results_buf, 1, 2, false)[1]:sub(1, 2) == "> ")
+
+local saw_row_zero_highlight = false
+local saw_row_one_highlight = false
+
+for _, extmark in ipairs(moved_match_extmarks) do
+  if extmark[2] == 0 then
+    saw_row_zero_highlight = true
+  end
+
+  if extmark[2] == 1 then
+    saw_row_one_highlight = true
+  end
+end
+
+assert(saw_row_zero_highlight)
+assert(saw_row_one_highlight)
+
+session.matches = {
+  {
+    item = {
+      recency = 0,
+      source = "history",
+      source_rank = 1,
       text = "write",
     },
     match_ranges = {
@@ -257,6 +324,47 @@ assert(vim.fn.histget(":", -1) == "33")
 vim.cmd("enew!")
 vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.fn["repeat"]({ "penguin" }, 40))
 vim.fn.histadd(":", "30verbose set number")
+
+require("penguin").close()
+
+for index = 1, 160 do
+  vim.fn.histadd(":", ("NativePenguinBench%03d"):format(index))
+end
+
+require("penguin").setup({
+  native = {
+    enabled = true,
+  },
+  ui = {
+    max_results = 100,
+  },
+})
+
+require("penguin").open()
+
+session = require("penguin")._session
+
+assert(session)
+assert(#session.matches == 100)
+assert(#vim.api.nvim_buf_get_lines(session.results_buf, 0, -1, false) == 100)
+
+session:set_query("native peng")
+assert(#session.matches == 100)
+assert(session.matches[1].item.text:match("^NativePenguinBench"))
+
+session:move_selection(75)
+
+local large_selection_extmarks = extmarks_with_detail(
+  session.results_buf,
+  ui.namespace,
+  "line_hl_group",
+  "Visual"
+)
+
+assert(#large_selection_extmarks == 1)
+assert(large_selection_extmarks[1][2] == 75)
+assert(vim.api.nvim_buf_get_lines(session.results_buf, 75, 76, false)[1]:sub(1, 2) == "> ")
+assert(vim.api.nvim_buf_get_lines(session.results_buf, 0, 1, false)[1]:sub(1, 2) == "  ")
 
 require("penguin").open()
 

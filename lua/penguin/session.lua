@@ -243,8 +243,15 @@ function Session:move_selection(delta)
 		return
 	end
 
+	local previous_selection = self.selection
 	self.selection = ((self.selection - 1 + delta) % #self.matches) + 1
-	ui.render(self)
+	-- Example:
+	--   before: row 17 is `> set number`, row 18 is `  set relativenumber`
+	--   after : row 17 is `  set number`, row 18 is `> set relativenumber`
+	-- The match set stays the same; only the active marker moves by one row.
+	-- Keep that path incremental so scrolling a long visible result window does
+	-- not pay the cost of rebuilding every row and highlight on each move.
+	ui.update_selection(self, previous_selection)
 end
 
 function Session:complete_selection()
