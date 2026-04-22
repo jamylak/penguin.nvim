@@ -62,6 +62,66 @@ local function command_name(query)
   return ((query:match("^%s*(%S+)") or ""):gsub("!$", "")):lower()
 end
 
+---Resolve the command key used for completion strategy lookup.
+---
+---This maps the typed Ex command name to the configured strategy entry in
+---`command_strategies`:
+---
+---  input `checkhealth` -> `checkhealth`
+---  input `che`         -> `checkhealth`  when `che` is a unique abbreviation
+---  input `ch`          -> `ch`           when no configured strategy matches
+---  input `c`           -> `c`            when multiple configured commands
+---                                      would share that prefix
+---
+---Why this exists:
+---Neovim accepts unique Ex-command abbreviations, so `:che` runs
+---`:checkhealth`. Penguin needs to mirror that rule during strategy lookup or
+---the `checkhealth = "prefix_cached_deferred"` setting will not apply until
+---the full command name is typed.
+---
+---@param name string Typed Ex command name with no arguments, e.g. `che`.
+---@return string Strategy lookup key, either the exact configured command name
+---or the original input when no unique configured match exists.
+local function strategy_command_name(name)
+  local normalized = vim.trim(name or ""):lower()
+
+  if normalized == "" then
+    return ""
+  end
+
+  if command_strategies[normalized] ~= nil then
+    return normalized
+  end
+
+  local matched = nil
+
+  -- `command_strategies` is a map like:
+  --   {
+  --     checkhealth = "prefix_cached_deferred",
+  --     slowcmd = "deferred",
+  --   }
+  --
+  -- Iterate over those configured command names and see whether the typed
+  -- command is a prefix of exactly one of them.
+  for candidate in pairs(command_strategies) do
+    -- Ex commands accept unique abbreviations, so `:che` executes
+    -- `:checkhealth`. Strategy lookup needs to mirror that behavior or slow
+    -- commands fall back to live per-keystroke completion until the full name
+    -- is typed out.
+    if vim.startswith(candidate, normalized) then
+      -- Only inherit the strategy when the abbreviation is unambiguous.
+      -- Ambiguous prefixes should behave like a normal live command probe.
+      if matched ~= nil then
+        return normalized
+      end
+
+      matched = candidate
+    end
+  end
+
+  return matched or normalized
+end
+
 ---@param query string|nil
 ---@return { cache_key: string|nil, defer: boolean, kind: string, lookup_query: string, prefix: string }|nil
 local function completion_plan(query)
@@ -76,7 +136,7 @@ local function completion_plan(query)
   local defer = false
 
   if kind == "cmdline" then
-    local strategy = command_strategies[command_name(query)] or "live"
+    local strategy = command_strategies[strategy_command_name(command_name(query))] or "live"
 
     if strategy == "deferred" then
       defer = true

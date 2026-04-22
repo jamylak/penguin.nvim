@@ -368,6 +368,29 @@ session:set_query("checkhealth vim")
 vim.wait(50)
 assert(#completion_calls == 1)
 
+completion_calls = {}
+session:set_query("che ")
+session:set_query("che v")
+session:set_query("che vi")
+-- `:che` is a unique abbreviation for `:checkhealth`, so it should inherit the
+-- same deferred strategy immediately instead of running slow cmdline completion
+-- again for each extra typed suffix.
+assert(#completion_calls == 0)
+
+vim.wait(1000, function()
+  return #completion_calls == 1
+end)
+
+assert(#completion_calls == 1)
+assert(completion_calls[1].kind == "cmdline")
+assert(completion_calls[1].query == "che ")
+
+session:set_query("che vim")
+vim.wait(50)
+-- Once the abbreviated command prefix has been fetched/cached, more typing on
+-- the same command should keep reusing that result.
+assert(#completion_calls == 1)
+
 completion._complete = original_complete
 require("penguin").close()
 
