@@ -110,6 +110,31 @@ local topk_items = {
 }
 local topk_matcher = native.new_exact_matcher(topk_items)
 local topk_results = native.find_fuzzy(topk_matcher, topk_items, "set nu", 2)
+local recency_priority_items = {
+  { text = "LeftMargin", recency = 0, source = "history", source_rank = 1 },
+  { text = "lmap", recency = 1, source = "history", source_rank = 1 },
+  { text = "left", recency = 2, source = "history", source_rank = 1 },
+  { text = "Oil", recency = 3, source = "history", source_rank = 1 },
+  { text = "NeogitLog", recency = 4, source = "history", source_rank = 1 },
+  { text = "NeogitDiff", recency = 5, source = "history", source_rank = 1 },
+  { text = "NeogitLogCurrent", recency = 6, source = "history", source_rank = 1 },
+  { text = "NeogitDiffMain", recency = 7, source = "history", source_rank = 1 },
+  { text = "checkhealth cplug", recency = 8, source = "history", source_rank = 1 },
+  { text = "ls", recency = 9, source = "history", source_rank = 1 },
+  { text = "pwd", recency = 10, source = "history", source_rank = 1 },
+  { text = "history", recency = 11, source = "history", source_rank = 1 },
+  { text = "checkhealth grug-far", recency = 12, source = "history", source_rank = 1 },
+  { text = "23", recency = 13, source = "history", source_rank = 1 },
+  { text = "45", recency = 14, source = "history", source_rank = 1 },
+  { text = "92", recency = 15, source = "history", source_rank = 1 },
+  { text = "4", recency = 16, source = "history", source_rank = 1 },
+  { text = "0", recency = 17, source = "history", source_rank = 1 },
+  { text = "TSLog", recency = 800, source = "history", source_rank = 1 },
+}
+local recency_priority_matcher = native.new_exact_matcher(recency_priority_items)
+local recency_priority_results = matcher.filter(recency_priority_items, "log", 12, {
+  native_matcher = recency_priority_matcher,
+})
 
 assert(#realistic_results >= 1)
 assert(realistic_results[1].item.text == "vertical botright split")
@@ -128,6 +153,10 @@ assert(duplicate_token_results[1].match_ranges[1][2] == 5)
 assert(#topk_results == 2)
 assert(topk_results[1].item.text == "set nu")
 assert(topk_results[2].item.text == "set number")
+assert(#recency_priority_results >= 3)
+assert(recency_priority_results[1].item.text == "NeogitLog")
+assert(recency_priority_results[2].item.text == "NeogitLogCurrent")
+assert(recency_priority_results[3].item.text == "TSLog")
 
 require("penguin").setup({
   native = {

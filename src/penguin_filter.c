@@ -87,6 +87,15 @@ static int penguin_subsequence_score(const char *needle,
                                      const char *haystack,
                                      int haystack_length);
 
+/* Lua builds history and completion lists in priority order: newest history
+ * first, best completion first. Bias native top-k selection by that same order
+ * so an old short match cannot evict a recent command before Lua sees it. */
+static inline int penguin_apply_order_bias(int score, int index) {
+  int capped_index = index < 18 ? index : 18;
+
+  return score - (capped_index * 3);
+}
+
 static int penguin_find_worst_result_index(const penguin_result *results,
                                            int count) {
   int worst_index = 0;
@@ -366,6 +375,8 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_single_token
       continue;
     }
 
+    score = penguin_apply_order_bias(score, index);
+
     if (count < kept_limit) {
       matcher->results[count].index = index;
       matcher->results[count].score = score;
@@ -473,6 +484,8 @@ static const penguin_query_result *penguin_exact_matcher_find_fuzzy_query(
         &compact_query, candidate, matcher->compact_text_lengths[index]);
 
     if (score >= 0) {
+      score = penguin_apply_order_bias(score, index);
+
       /* Top-k collection:
        *   keep only the strongest `kept_limit` scores during the scan
        *   instead of collecting and sorting every match afterward.

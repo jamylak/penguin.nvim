@@ -1,6 +1,10 @@
 local M = {}
 local native = require("penguin.native")
 local lua_benchmark_only_enabled = false
+-- Native matching is the real runtime path. These constants only keep the
+-- Lua benchmark/fallback scorer aligned when `native.benchmark_only_lua` is on.
+local ORDER_BIAS_PER_INDEX = 3
+local ORDER_BIAS_MAX_INDEX = 18
 
 local function normalize(text)
   return (text or ""):lower()
@@ -305,7 +309,8 @@ function M.filter(items, query, limit, opts)
       result_count = result_count + 1
       results[result_count] = {
         item = item,
-        score = score,
+        score = score
+          - (math.min(index - 1, ORDER_BIAS_MAX_INDEX) * ORDER_BIAS_PER_INDEX),
       }
     end
   end
