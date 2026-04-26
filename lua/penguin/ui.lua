@@ -337,7 +337,7 @@ function M.open(session)
   end, map_options)
 
   vim.keymap.set({ "i", "n" }, "<C-j>", function()
-    session:move_selection(1)
+    session:confirm()
   end, map_options)
 
   vim.keymap.set({ "i", "n" }, "<C-k>", function()
