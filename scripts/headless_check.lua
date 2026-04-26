@@ -54,6 +54,8 @@ vim.fn.histadd(":", "vertical botright split")
 vim.fn.histadd(":", "let g:penguin_complete = 21")
 vim.fn.histadd(":", "let g:penguin_selected = 7")
 vim.fn.histadd(":", "set numberwidth=5")
+vim.fn.histadd(":", "LeftMargin")
+vim.fn.histadd(":", "left")
 
 require("penguin").open()
 
@@ -61,6 +63,22 @@ local session = require("penguin")._session
 
 assert(session)
 assert(#session.matches >= 3)
+
+-- Deleting a history match should remove it from the live picker state and
+-- from Neovim's command history, so a later ShaDa write cannot restore it.
+session:set_query("left")
+assert(session.matches[1].item.text == "left")
+assert(session.matches[1].item.source == "history")
+session:delete_selected_history()
+
+for _, match in ipairs(session.matches) do
+  assert(not (match.item.text == "left" and match.item.source == "history"))
+end
+
+for index = 1, vim.fn.histnr(":") do
+  assert(vim.fn.histget(":", index) ~= "left")
+end
+
 session:set_query("penguin sel")
 
 assert(session.matches[1].item.text == "let g:penguin_selected = 7")
@@ -192,6 +210,7 @@ assert(#session.matches >= 1)
 assert(vim.fn.maparg("<C-n>", "i", false, true).lhs == "<C-N>")
 assert(vim.fn.maparg("<C-p>", "i", false, true).lhs == "<C-P>")
 assert(vim.fn.maparg("<C-w>", "i", false, true).lhs == "<C-W>")
+assert(vim.fn.maparg("<C-q>", "i", false, true).lhs == "<C-Q>")
 assert(vim.fn.maparg("<Tab>", "i", false, true).lhs == "<Tab>")
 
 require("penguin").close()

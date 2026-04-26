@@ -20,4 +20,28 @@ function M.collect()
   return items
 end
 
+function M.delete(text)
+  text = vim.trim(text or "")
+
+  if text == "" then
+    return false
+  end
+
+  local deleted = false
+
+  for index = vim.fn.histnr(":"), 1, -1 do
+    if vim.trim(vim.fn.histget(":", index) or "") == text then
+      if vim.fn.histdel(":", index) ~= 0 then
+        deleted = true
+      end
+    end
+  end
+
+  if deleted then
+    pcall(vim.cmd, "wshada!")
+  end
+
+  return deleted
+end
+
 return M

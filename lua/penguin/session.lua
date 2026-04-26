@@ -282,6 +282,26 @@ function Session:delete_after_cursor()
 	ui.focus_prompt(self)
 end
 
+function Session:delete_selected_history()
+	local match = self.matches[self.selection]
+
+	if not match or not match.item or match.item.source ~= "history" then
+		return
+	end
+
+	local previous_selection = self.selection
+
+	if not history.delete(match.item.text) then
+		return
+	end
+
+	self.entries = history.collect()
+	self.native_history_matcher = build_native_matcher(self.entries)
+	self.selection = previous_selection
+	self:refresh()
+	ui.focus_prompt(self)
+end
+
 function Session:submit_query()
 	local text = self.query
 

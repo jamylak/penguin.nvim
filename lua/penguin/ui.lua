@@ -356,6 +356,10 @@ function M.open(session)
     session:delete_word_backward()
   end, map_options)
 
+  vim.keymap.set({ "i", "n" }, "<C-q>", function()
+    session:delete_selected_history()
+  end, map_options)
+
   vim.keymap.set({ "i", "n" }, "<CR>", function()
     session:confirm()
   end, map_options)

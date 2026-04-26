@@ -174,6 +174,8 @@ vim.fn.histadd(":", "checkhealth")
 vim.fn.histadd(":", "vertical botright split")
 vim.fn.histadd(":", "write")
 vim.fn.histadd(":", "let g:penguin_selected = 7")
+vim.fn.histadd(":", "LeftMargin")
+vim.fn.histadd(":", "left")
 
 require("penguin").open()
 
@@ -183,6 +185,24 @@ assert(session)
 assert(session.native_history_matcher ~= nil)
 assert(session.native_history_matcher.handle ~= nil)
 assert(session.native_history_matcher.text_count == #session.entries)
+
+-- Deleting a history match should remove it from both Lua state and the native
+-- matcher snapshot after the command-history mutation.
+session:set_query("left")
+assert(session.matches[1].item.text == "left")
+assert(session.matches[1].item.source == "history")
+session:delete_selected_history()
+assert(session.native_history_matcher ~= nil)
+assert(session.native_history_matcher.text_count == #session.entries)
+
+for _, match in ipairs(session.matches) do
+  assert(not (match.item.text == "left" and match.item.source == "history"))
+end
+
+for index = 1, vim.fn.histnr(":") do
+  assert(vim.fn.histget(":", index) ~= "left")
+end
+
 session:set_query("check")
 assert(#session.matches >= 1)
 session:set_query("ckh")
@@ -339,6 +359,7 @@ for _, match in ipairs(session.matches) do
 end
 
 assert(saw_completion_match)
+assert(vim.fn.maparg("<C-q>", "i", false, true).lhs == "<C-Q>")
 assert(vim.fn.maparg("<Tab>", "i", false, true).lhs == "<Tab>")
 
 require("penguin").close()

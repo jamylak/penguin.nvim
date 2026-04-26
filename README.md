@@ -140,6 +140,7 @@ Current controls:
 - `Ctrl-j` executes the selected item
 - `Ctrl-k` deletes after the cursor in the prompt
 - `Ctrl-w` to delete the previous word
+- `Ctrl-q` deletes the selected history entry and writes the change to ShaDa
 - `Enter` executes the selected item
 - bare numeric queries like `30` jump directly to that line on `Enter` by default
 - `Shift-Enter` executes the current text box contents directly
