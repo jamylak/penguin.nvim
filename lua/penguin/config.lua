@@ -2,6 +2,7 @@ local M = {}
 
 M.defaults = {
 	direct_numeric_line_jumps_on_enter = true,
+	submit_on_enter_if_no_matches = true,
 	completion = {
 		-- Command-name completion stays synchronous. Argument completion strategy is
 		-- selected per command so cheap path-oriented commands can stay fully live

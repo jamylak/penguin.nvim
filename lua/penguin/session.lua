@@ -302,6 +302,9 @@ function Session:confirm()
 	local text = self:selected_text()
 
 	if not text then
+		if self.config.submit_on_enter_if_no_matches then
+			self:submit_query()
+		end
 		return
 	end
 

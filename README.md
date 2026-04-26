@@ -136,8 +136,9 @@ Current controls:
 - type to filter
 - non-empty queries can show both history hits and live command completions
 - `Up` / `Down` to move
-- `Ctrl-j` / `Ctrl-k` to move
 - `Ctrl-n` / `Ctrl-p` to move
+- `Ctrl-j` executes the selected item
+- `Ctrl-k` deletes after the cursor in the prompt
 - `Ctrl-w` to delete the previous word
 - `Enter` executes the selected item
 - bare numeric queries like `30` jump directly to that line on `Enter` by default
@@ -149,6 +150,8 @@ Config note:
 
 - `direct_numeric_line_jumps_on_enter = true` makes fully numeric queries bypass
   the selected suggestion on plain `Enter` so `30` jumps straight to line 30
+- `submit_on_enter_if_no_matches = true` (default) makes plain `Enter` execute
+  the current query if there are no suggestions showing, instead of doing nothing
 
 ## Local Development
 
