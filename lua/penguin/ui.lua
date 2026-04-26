@@ -341,7 +341,7 @@ function M.open(session)
   end, map_options)
 
   vim.keymap.set({ "i", "n" }, "<C-k>", function()
-    session:move_selection(-1)
+    session:delete_after_cursor()
   end, map_options)
 
   vim.keymap.set({ "i", "n" }, "<C-n>", function()
@@ -409,6 +409,15 @@ function M.update_selection(session, previous_selection)
   end
 
   ensure_selection_visible(session)
+end
+
+function M.get_prompt_cursor_col(session)
+  if not session.prompt_win or not vim.api.nvim_win_is_valid(session.prompt_win) then
+    return #session.query
+  end
+
+  local cursor = vim.api.nvim_win_get_cursor(session.prompt_win)
+  return math.max(0, cursor[2] - #prompt_prefix)
 end
 
 function M.set_prompt_text(session, text)

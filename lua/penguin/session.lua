@@ -275,6 +275,13 @@ function Session:delete_word_backward()
 	ui.focus_prompt(self)
 end
 
+function Session:delete_after_cursor()
+	local col = ui.get_prompt_cursor_col(self)
+	local next_query = self.query:sub(1, col)
+	self:apply_query(next_query)
+	ui.focus_prompt(self)
+end
+
 function Session:submit_query()
 	local text = self.query
 
