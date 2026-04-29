@@ -6,6 +6,7 @@ local ui = require("penguin.ui")
 
 local Session = {}
 Session.__index = Session
+local empty_direct_submit_commands = {}
 
 local function record_command_history(command)
 	vim.fn.histadd(":", command)
@@ -62,14 +63,6 @@ local function execute_command(text)
 	return ok
 end
 
-local function should_submit_query_on_confirm(config, query)
-	if not config.direct_numeric_line_jumps_on_enter then
-		return false
-	end
-
-	return line_jump_target(vim.trim(query or "")) ~= nil
-end
-
 local function run_after_close(text)
 	vim.schedule(function()
 		execute_command(text)
@@ -120,6 +113,14 @@ local function set_completion_items(session, items)
 end
 
 function Session:new(config)
+	local direct_submit_on_enter_commands = config.direct_submit_on_enter_commands
+
+	-- Normalize this once per picker session so `confirm()` can stay on a plain
+	-- table lookup instead of guarding the type on every Enter press.
+	if type(direct_submit_on_enter_commands) ~= "table" then
+		direct_submit_on_enter_commands = empty_direct_submit_commands
+	end
+
 	local session = setmetatable({
 		closed = false,
 		completion_cache = {},
@@ -127,6 +128,8 @@ function Session:new(config)
 		completion_items = {},
 		completion_native_matcher = nil,
 		config = config,
+		direct_numeric_line_jumps_on_enter = config.direct_numeric_line_jumps_on_enter,
+		direct_submit_on_enter_commands = direct_submit_on_enter_commands,
 		entries = history.collect(),
 		matches = {},
 		query = "",
@@ -303,9 +306,9 @@ function Session:delete_selected_history()
 end
 
 function Session:submit_query()
-	local text = self.query
+	local text = vim.trim(self.query or "")
 
-	if vim.trim(text or "") == "" then
+	if text == "" then
 		return
 	end
 
@@ -314,11 +317,43 @@ function Session:submit_query()
 end
 
 function Session:confirm()
-	if should_submit_query_on_confirm(self.config, self.query) then
-		self:submit_query()
+	local query = self.query or ""
+	local direct_submit_on_enter_commands = self.direct_submit_on_enter_commands
+
+	-- Fastest path for exact commands like `w` and `q`: do one hash lookup and
+	-- execute the typed text directly, before looking at the selected row.
+	if direct_submit_on_enter_commands[query] then
+		self:close()
+		run_after_close(query)
 		return
 	end
 
+	-- Only trim after the raw lookup misses. That keeps the common exact-command
+	-- case free of normalization while preserving tolerance for accidental
+	-- surrounding whitespace.
+	local command = vim.trim(query)
+
+	-- If trimming changed the query into a configured direct command, keep the
+	-- same bypass semantics and execute the cleaned command instead of whatever
+	-- completion/history item is selected.
+	if command ~= query and direct_submit_on_enter_commands[command] then
+		self:close()
+		run_after_close(command)
+		return
+	end
+
+	-- Numeric queries are another intentional selection bypass: `30` should jump
+	-- to line 30 even if the current match is a history entry like
+	-- `30verbose set number`.
+	if self.direct_numeric_line_jumps_on_enter and line_jump_target(command) ~= nil then
+		self:close()
+		run_after_close(command)
+		return
+	end
+
+	-- Normal Enter behavior after the explicit bypasses: accept the active
+	-- suggestion, or submit the typed query only when configured to do so and no
+	-- suggestion is available.
 	local text = self:selected_text()
 
 	if not text then

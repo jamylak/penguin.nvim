@@ -1,6 +1,18 @@
 local M = {}
 
 M.defaults = {
+	direct_submit_on_enter_commands = {
+		bd = true,
+		noh = true,
+		q = true,
+		["q!"] = true,
+		qa = true,
+		["qa!"] = true,
+		w = true,
+		["w!"] = true,
+		wq = true,
+		x = true,
+	},
 	direct_numeric_line_jumps_on_enter = true,
 	submit_on_enter_if_no_matches = true,
 	completion = {

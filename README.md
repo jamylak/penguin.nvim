@@ -149,6 +149,9 @@ Current controls:
 
 Config note:
 
+- `direct_submit_on_enter_commands` makes exact command queries bypass the
+  selected suggestion on plain `Enter`; defaults are `:bd`, `:noh`, `:q`,
+  `:q!`, `:qa`, `:qa!`, `:w`, `:w!`, `:wq`, and `:x`
 - `direct_numeric_line_jumps_on_enter = true` makes fully numeric queries bypass
   the selected suggestion on plain `Enter` so `30` jumps straight to line 30
 - `submit_on_enter_if_no_matches = true` (default) makes plain `Enter` execute

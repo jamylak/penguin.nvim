@@ -40,6 +40,43 @@ local function visible_line_range(window)
   end)
 end
 
+local function assert_direct_submit_on_enter(command, selected_text)
+  require("penguin").open()
+
+  local session = require("penguin")._session
+
+  assert(session)
+
+  session.query = command
+  session.matches = {
+    {
+      item = {
+        text = selected_text,
+      },
+    },
+  }
+  session.selection = 1
+
+  local original_cmd = vim.cmd
+  local executed = {}
+
+  vim.cmd = function(text)
+    executed[#executed + 1] = text
+  end
+
+  session:confirm()
+
+  local saw_execution = vim.wait(1000, function()
+    return executed[#executed] == command
+  end)
+
+  vim.cmd = original_cmd
+
+  assert(saw_execution)
+  assert(executed[#executed] == command)
+  assert(vim.fn.histget(":", -1) == command)
+end
+
 assert(matcher.backend_name() == "native-fuzzy-query")
 
 assert(matcher.score("ckh", "checkhealth"))
@@ -119,6 +156,21 @@ vim.wait(1000, function()
 end)
 assert(vim.g.penguin_direct == 13)
 assert(vim.fn.histget(":", -1) == "let g:penguin_direct = 13")
+
+for _, command in ipairs({
+  "bd",
+  "noh",
+  "q",
+  "q!",
+  "qa",
+  "qa!",
+  "w",
+  "w!",
+  "wq",
+  "x",
+}) do
+  assert_direct_submit_on_enter(command, "Selected" .. command)
+end
 
 vim.cmd("enew!")
 vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.fn["repeat"]({ "penguin" }, 40))
