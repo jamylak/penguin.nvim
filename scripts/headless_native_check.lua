@@ -207,9 +207,14 @@ assert(matcher.score("spl bot", "vertical botright split"))
 assert(matcher.score("splbot", "vertical botright split"))
 assert(not matcher.score("zz", "write"))
 
+vim.fn.histadd(":", "write")
+
+for index = 1, 30 do
+  vim.fn.histadd(":", ("PenguinDeleteShadow%02d"):format(index))
+end
+
 vim.fn.histadd(":", "checkhealth")
 vim.fn.histadd(":", "vertical botright split")
-vim.fn.histadd(":", "write")
 vim.fn.histadd(":", "let g:penguin_selected = 7")
 vim.fn.histadd(":", "LeftMargin")
 vim.fn.histadd(":", "left")
@@ -238,6 +243,22 @@ end
 
 for index = 1, vim.fn.histnr(":") do
   assert(vim.fn.histget(":", index) ~= "left")
+end
+
+-- A completion result can outrank an older history result for the same text.
+-- Ctrl-q should still delete the matching command-history entry and rebuild
+-- the native snapshot immediately.
+session:set_query("write")
+assert(session.matches[1].item.text == "write")
+assert(session.matches[1].item.source == "completion")
+local previous_entry_count = #session.entries
+session:delete_selected_history()
+assert(#session.entries == previous_entry_count - 1)
+assert(session.native_history_matcher ~= nil)
+assert(session.native_history_matcher.text_count == #session.entries)
+
+for index = 1, vim.fn.histnr(":") do
+  assert(vim.fn.histget(":", index) ~= "write")
 end
 
 session:set_query("check")

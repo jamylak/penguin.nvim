@@ -288,12 +288,14 @@ end
 function Session:delete_selected_history()
 	local match = self.matches[self.selection]
 
-	if not match or not match.item or match.item.source ~= "history" then
+	if not match or not match.item then
 		return
 	end
 
 	local previous_selection = self.selection
 
+	-- A completion result with the same text can shadow an older history match
+	-- during filtering. Delete by selected text so the history copy still goes.
 	if not history.delete(match.item.text) then
 		return
 	end

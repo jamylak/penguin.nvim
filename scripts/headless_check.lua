@@ -85,6 +85,12 @@ assert(matcher.score("splbot", "vertical botright split"))
 assert(matcher.score("pgo", "lua require('penguin').open()"))
 assert(not matcher.score("zz", "write"))
 
+vim.fn.histadd(":", "write")
+
+for index = 1, 30 do
+  vim.fn.histadd(":", ("PenguinDeleteShadow%02d"):format(index))
+end
+
 vim.fn.histadd(":", "ls")
 vim.fn.histadd(":", "checkhealth")
 vim.fn.histadd(":", "vertical botright split")
@@ -114,6 +120,18 @@ end
 
 for index = 1, vim.fn.histnr(":") do
   assert(vim.fn.histget(":", index) ~= "left")
+end
+
+-- Older history entries can be shadowed by command completion for the same
+-- text during filtering. Deleting the selected row should still remove the
+-- history copy even when the merged row came from completion.
+session:set_query("write")
+assert(session.matches[1].item.text == "write")
+assert(session.matches[1].item.source == "completion")
+session:delete_selected_history()
+
+for index = 1, vim.fn.histnr(":") do
+  assert(vim.fn.histget(":", index) ~= "write")
 end
 
 session:set_query("penguin sel")
