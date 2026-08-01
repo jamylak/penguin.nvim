@@ -39,15 +39,31 @@ Current stage:
 
 ## Installation
 
-### Native Neovim
+### Native Neovim (`vim.pack`)
 
 ```lua
-vim.opt.runtimepath:append("/Users/james/proj/penguin.nvim")
+vim.pack.add({
+  { src = "https://github.com/jamylak/penguin.nvim", name = "penguin.nvim" },
+})
+
 require("penguin").setup({})
 ```
 
-That setup path uses the native matcher by default. If the native library is
-missing, `penguin.nvim` will try to run `make native` automatically.
+This requires Neovim 0.12+ for `vim.pack`. The default setup uses the native
+matcher. On its first load, the plugin builds the native library when needed,
+so `make` and a C compiler must be available. To build it ahead of time, run
+`make native` from the plugin directory.
+
+For a local checkout while developing the plugin, add it to `runtimepath` and
+source its plugin file before calling `setup()`:
+
+```lua
+local penguin_dir = vim.fn.expand("~/proj/penguin.nvim")
+
+vim.opt.rtp:append(penguin_dir)
+vim.cmd.source(vim.fs.joinpath(penguin_dir, "plugin", "penguin.lua"))
+require("penguin").setup({})
+```
 
 Experimental optional normal-mode `Enter` integration:
 
@@ -69,8 +85,7 @@ spec also needs an `Enter` trigger.
 
 ```lua
 {
-  dir = "/Users/james/proj/penguin.nvim",
-  name = "penguin.nvim",
+  "jamylak/penguin.nvim",
   cmd = "Penguin",
   keys = {
     { "<M-Space>", "<cmd>Penguin<cr>", desc = "Open penguin.nvim", mode = "n" },
@@ -84,8 +99,7 @@ If you also want `open_on_bare_enter = true`, add a small bootstrap mapping in
 
 ```lua
 {
-  dir = "/Users/james/proj/penguin.nvim",
-  name = "penguin.nvim",
+  "jamylak/penguin.nvim",
   cmd = "Penguin",
   init = function(plugin)
     vim.keymap.set("n", "<CR>", function()
@@ -167,15 +181,20 @@ Manual test session with seeded command history:
 make run
 ```
 
-That builds the native module first and launches Neovim using [scripts/minimal_native_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_native_init.lua). It loads `penguin.nvim` from this repo, enables the current native runtime slice, and seeds a few history entries so `:Penguin` is immediately useful.
+That builds the native module first and launches Neovim using
+[scripts/minimal_native_init.lua](scripts/minimal_native_init.lua). It loads
+this checkout, uses a 100-row result window, and seeds command history for
+manual picker testing.
 
-Lua baseline dev session:
+Standard dev session (the `run-lua` target name is retained for compatibility):
 
 ```sh
 make run-lua
 ```
 
-That launches Neovim using [scripts/minimal_init.lua](/Users/james/proj/penguin.nvim/scripts/minimal_init.lua) and still uses the native matcher by default.
+That launches Neovim using [scripts/minimal_init.lua](scripts/minimal_init.lua)
+and the normal plugin defaults. It therefore still uses the native matcher by
+default and will build it on first load if necessary.
 
 Benchmark-only Lua baseline:
 
@@ -187,7 +206,7 @@ require("penguin").setup({
 })
 ```
 
-Optional native stub build:
+Manual native build:
 
 ```sh
 make native
@@ -199,15 +218,16 @@ Headless native check:
 make check
 ```
 
-That verifies the native loader and the current native runtime slice.
+That verifies the native loader, matcher, and picker behavior.
 
-Headless Lua baseline check:
+Headless standard check:
 
 ```sh
 make check-lua
 ```
 
-That runs [scripts/headless_check.lua](/Users/james/proj/penguin.nvim/scripts/headless_check.lua) against the default native runtime path.
+That runs [scripts/headless_check.lua](scripts/headless_check.lua) against the
+default native runtime path.
 
 Headless benchmark run:
 
@@ -215,7 +235,9 @@ Headless benchmark run:
 make bench
 ```
 
-That runs the default quick profile from [scripts/headless_bench.lua](/Users/james/proj/penguin.nvim-improve03/scripts/headless_bench.lua), which compares the current Lua exact-scan baseline, native exact-scan baseline, and the current matcher runtime slice across the routine benchmark scenarios.
+That runs the default quick profile from
+[scripts/headless_bench.lua](scripts/headless_bench.lua), comparing the Lua
+baseline and native matcher paths across routine benchmark scenarios.
 
 Focused 100-row visible-list benchmark:
 
