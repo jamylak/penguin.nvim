@@ -3,6 +3,9 @@
 > A fast, fuzzy command palette for Neovim’s Ex history and command-line
 > completions.
 
+🚧 [Work In Progress] I put this together pretty quickly and it is not as fuzzy as FFF
+but it makes my workflow easier than using `:`
+
 <p align="center">
   <img src="assets/screenshot.png" alt="penguin.nvim command picker" width="760">
 </p>
