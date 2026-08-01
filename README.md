@@ -1,41 +1,34 @@
 # 🐧 `penguin.nvim`
 
-🚧 Work in progress. Still fixing a lot of stuff...
+> A fast, fuzzy command palette for Neovim’s Ex history and command-line
+> completions.
 
-![screenshot.png](assets/screenshot.png)
+<p align="center">
+  <img src="assets/screenshot.png" alt="penguin.nvim command picker" width="760">
+</p>
 
-`penguin.nvim` is a command-history and command-entry picker for Neovim.
-It is a lua frontend to a C backend.
-It was inspired by `telescope-cmdline.nvim`, but the goal here is to make the
-experience much faster and much fuzzier.
+`penguin.nvim` turns `:` into a spotlight-style picker: search old commands,
+discover available ones, then run them without leaving the flow. It is a Lua
+frontend backed by a native C matcher, inspired by `telescope-cmdline.nvim`.
 
-(Not as fuzzy as FFF but currently fuzzier than the inbuilt `:`)
+## In five seconds
 
-The idea is a spotlight-like interface for Neovim command entry: something
-that makes it much easier to enter commands, rediscover commands, and reuse
-previous commands than the default `:` prompt flow.
+| Open | Find | Act |
+| --- | --- | --- |
+| `:Penguin` or `Alt-Space` | Fuzzy history and live Ex completions | `Enter` runs, `Ctrl-e` fills, `Ctrl-q` deletes history |
 
-It is still a work in progress and still being tested, but the intended UX is:
+🟢 **Native matcher by default** · ⚡ **Builds on first load** · 🧪 **Work in progress**
 
-- spotlight-like command entry for Neovim
-- much faster fuzzy matching on command history and command completions
-- a more ergonomic command workflow than raw `:` usage
-- optional features like bare `Enter` opening the picker so command entry can
-  feel more immediate in normal editing flow
+It is designed to feel fuzzier than Neovim’s built-in `:` command line while
+keeping the command workflow close to native Neovim.
 
-## Status
+## What works today
 
-Current stage:
-
-- plugin loads
-- `:Penguin` opens a floating picker
-- Ex command history is collected from Neovim
-- live Ex command suggestions are merged into non-empty queries
-- empty query shows recent commands first
-- the native matcher is the default and intended runtime path
-- the plugin auto-builds the native library when it is missing
-- the Lua matcher path is benchmark-only and opt-in
-- selected or typed commands can be executed from the picker
+- 🕘 Recent Ex history appears immediately for an empty query.
+- 🔎 Non-empty queries merge fuzzy history hits with live command completions.
+- 🚀 The native matcher is the normal runtime path; Lua matching is benchmark-only.
+- ⌨️ Selected commands, direct typed commands, and numeric line jumps can all run from the prompt.
+- ↵ Bare normal-mode `Enter` integration is available as an opt-in experiment.
 
 ## Installation
 
@@ -145,25 +138,24 @@ also open the picker in ordinary file buffers. That is intentionally opt-in,
 and lazy setups need the bootstrap mapping above because `setup()` alone cannot
 install the first `Enter` trigger before the plugin loads.
 
-At this stage the picker opens, filters, navigates, completes, and executes commands from the prompt.
+The picker filters, navigates, completes, and executes commands from the prompt.
 
-Current controls:
+### Controls
 
-- type to filter
-- non-empty queries can show both history hits and live command completions
-- `Up` / `Down` to move
-- `Ctrl-n` / `Ctrl-p` to move
-- `Ctrl-j` executes the selected item
-- `Ctrl-k` deletes after the cursor in the prompt
-- `Ctrl-w` to delete the previous word
-- `Ctrl-q` deletes the selected history entry and writes the change to ShaDa
-- `Enter` executes the selected item
-- bare numeric queries like `30` jump directly to that line on `Enter` by default
-- `Shift-Enter` executes the current text box contents directly
-- `Ctrl-e` fills the text box from the selected item without executing
-- `Esc` closes the picker
+| Key | Action |
+| --- | --- |
+| Type | Filter history and command completions |
+| `Up` / `Down` or `Ctrl-n` / `Ctrl-p` | Move selection |
+| `Enter` or `Ctrl-j` | Run the selected item |
+| `Shift-Enter` | Run the text currently in the prompt |
+| `Ctrl-e` or `Tab` | Fill the prompt from the selected item |
+| `Ctrl-k` / `Ctrl-w` | Delete after cursor / previous word |
+| `Ctrl-q` | Delete the selected history entry and write ShaDa |
+| `Esc` or `Ctrl-c` | Close the picker |
 
-Config note:
+Bare numeric queries such as `30` jump to that line on `Enter` by default.
+
+### Enter behavior
 
 - `direct_submit_on_enter_commands` makes exact command queries bypass the
   selected suggestion on plain `Enter`; defaults are `:bd`, `:noh`, `:q`,
