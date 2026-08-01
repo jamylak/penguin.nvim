@@ -8,6 +8,7 @@
 It is a lua frontend to a C backend.
 It was inspired by `telescope-cmdline.nvim`, but the goal here is to make the
 experience much faster and much fuzzier.
+
 (Not as fuzzy as FFF but currently fuzzier than the inbuilt `:`)
 
 The idea is a spotlight-like interface for Neovim command entry: something
