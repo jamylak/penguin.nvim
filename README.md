@@ -10,15 +10,16 @@ but it makes my workflow easier than using `:`
   <img src="assets/screenshot.png" alt="penguin.nvim command picker" width="760">
 </p>
 
-`penguin.nvim` turns `:` into a spotlight-style picker: search old commands,
-discover available ones, then run them without leaving the flow. It is a Lua
-frontend backed by a native C matcher, inspired by `telescope-cmdline.nvim`.
+`penguin.nvim` is a spotlight-style command picker:
+Search old commands and available completions, then run them without leaving
+the flow. It is a Lua frontend backed by a native C matcher, inspired by
+`telescope-cmdline.nvim`.
 
 ## In five seconds
 
-| Open | Find | Act |
+| Open from Normal mode | Find | Act |
 | --- | --- | --- |
-| `:Penguin` or `Alt-Space` | Fuzzy history and live Ex completions | `Enter` runs, `Ctrl-e` fills, `Ctrl-q` deletes history |
+| `Alt-Space`, or `Return` when enabled | Fuzzy history and live Ex completions | `Enter` runs, `Ctrl-e` fills, `Ctrl-q` deletes history |
 
 🟢 **Native matcher by default** · ⚡ **Builds on first load** · 🧪 **Work in progress**
 
@@ -128,13 +129,15 @@ If you also want `open_on_bare_enter = true`, add a small bootstrap mapping in
 
 ## Usage
 
-Run:
+The recommended workflow is to open the picker from Normal mode with
+`Alt-Space`. If you enable bare `Return` integration, `Return` is an equally
+quick way to open it in ordinary file buffers.
+
+`:Penguin` remains available when a command is more convenient:
 
 ```vim
 :Penguin
 ```
-
-Or press `Alt-Space` in normal mode.
 
 If `open_on_bare_enter = true` is enabled, bare `Enter` in normal mode will
 also open the picker in ordinary file buffers. That is intentionally opt-in,
